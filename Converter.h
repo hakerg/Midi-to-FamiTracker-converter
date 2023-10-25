@@ -17,7 +17,7 @@ private:
     std::shared_ptr<Track> track;
 
     MidiState midiState;
-    NesState nesState;
+    NesState nesState = NesState(60);
 
     std::shared_ptr<Pattern> getPattern(int pattern) {
         while (track->patterns.size() <= pattern) {
@@ -251,14 +251,29 @@ private:
         return marks;
     }
 
+    int getSpeedDivider(double songTimeSeconds) const {
+        int maxRows = ROWS_PER_PATTERN * 0x80;
+        int divider = 1;
+        // 1 less for rounding error, let's be sure that halt event can be placed at the end of the song
+        while (songTimeSeconds * nesState.rowsPerSecond / divider >= maxRows - 1) {
+            divider++;
+        }
+        return divider;
+    }
+
 public:
     FamiTrackerFile convert(HSTREAM handle) {
         std::vector<BASS_MIDI_EVENT> events = getEvents(handle);
+        int speedDivider = getSpeedDivider(events.empty() ? 0 : BASS_ChannelBytes2Seconds(handle, events.back().pos));
+		nesState.rowsPerSecond /= speedDivider;
+
+        std::cout << "Scrolling speed: " << nesState.rowsPerSecond << " rows per second" << std::endl;
+
         instrumentSelector.preprocess(handle, events, file);
 
         file.comment = L"Created using MidiToFamiTrackerConverter by hakerg";
         track = file.addTrack(ROWS_PER_PATTERN);
-        track->speed = 1;
+        track->speed = speedDivider;
         track->tempo = 150;
 
         resetMidi();

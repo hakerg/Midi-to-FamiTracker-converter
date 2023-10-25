@@ -6,6 +6,9 @@ class NesState {
 public:
     std::array<std::optional<PlayingNesNote>, Pattern::CHANNELS> channels;
     double seconds = 0;
+    double rowsPerSecond;
+
+    explicit NesState(double rowsPerSecond) : rowsPerSecond(rowsPerSecond) {}
 
     std::optional<PlayingNesNote>& getNote(NesChannel channel) {
         return channels[int(channel)];
@@ -29,7 +32,7 @@ public:
         return getRow(seconds);
     }
 
-    static int getRow(double seconds) {
-        return int(round(seconds * 60));
+    int getRow(double seconds_) const {
+        return int(round(seconds_ * rowsPerSecond));
     }
 };

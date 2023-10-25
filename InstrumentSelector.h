@@ -70,13 +70,13 @@ private:
 		}
 
 		if (bool releaseDisabled = (checkedTrigger.nesChannel == NesChannel::NOISE || checkedTrigger.nesChannel == NesChannel::DPCM);
-			!note->playing || (releaseDisabled && currentRow != NesState::getRow(note->startSeconds))) { // note released
+			!note->playing || (releaseDisabled && currentRow != nesState.getRow(note->startSeconds))) { // note released
 
 			score.scores[0] = 1;
 		}
 		else {
 			// note start time
-			score.scores[2] = currentRow - NesState::getRow(note->startSeconds);
+			score.scores[2] = currentRow - nesState.getRow(note->startSeconds);
 
 			// note height
 			score.scores[3] = checkedMidiKey - note->midiKey;
