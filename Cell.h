@@ -10,8 +10,7 @@ class Cell {
 private:
 	std::wstring getInstrumentText(NesChannel channel) const {
 		if (instrument) {
-			bool isVrc6 = (channel == NesChannel::PULSE3 || channel == NesChannel::PULSE4 || channel == NesChannel::SAWTOOTH);
-			return hex2(isVrc6 ? instrument->getVrc6Id() : instrument->getNesId());
+			return hex2(isVrc6(channel) ? instrument->getVrc6Id() : instrument->getNesId());
 		}
 		else {
 			return L"..";
@@ -23,12 +22,16 @@ public:
 	enum class Type { EMPTY, NOTE, STOP, RELEASE };
 
 	Type type;
-	Note note;
+	std::optional<Note> note;
 	std::shared_ptr<Instrument> instrument;
 	int volume = -1;
 	std::vector<Effect> effects;
 
 	explicit Cell(Type type = Type::EMPTY) : type(type) {}
+
+	static bool isVrc6(NesChannel channel) {
+		return channel == NesChannel::PULSE3 || channel == NesChannel::PULSE4 || channel == NesChannel::SAWTOOTH;
+	}
 
 	void Note(Note note_, std::shared_ptr<Instrument> instrument_, int volume_ = -1) {
 		type = Type::NOTE;
@@ -43,7 +46,7 @@ public:
 			file << "...";
 			break;
 		case Type::NOTE:
-			file << (channel == NesChannel::NOISE ? note.toHexString() : note.toNoteString());
+			file << (channel == NesChannel::NOISE ? note->toHexString() : note->toNoteString());
 			break;
 		case Type::STOP:
 			file << "---";

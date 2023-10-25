@@ -7,13 +7,44 @@
 #include "InstrumentBase.h"
 #include "MidiState.h"
 #include "PlayScore.h"
-#include "PresetStatistics.h"
-#include "InstrumentBaseModifier.h"
+#include "AssignData.h"
+#include "AssignDataGenerator.h"
 
 class InstrumentSelector {
 private:
 	InstrumentBase base;
-	PresetStatistics stats;
+	std::vector<AssignData> channelAssignData;
+
+	void fillChannelAssignData(HSTREAM handle, std::vector<BASS_MIDI_EVENT> const& events) {
+		MidiState state;
+		AssignDataGenerator assignGenerator(state, 0, &base);
+		std::optional<AssignData> previousData;
+		for (auto const& event : events) {
+			state.processEvent(event);
+
+			if (event.event == MIDI_EVENT_NOTE) {
+				int velocity = MidiState::getVelocity(event);
+				if (velocity != 0 && velocity != 255) {
+					assignGenerator.addNote(event.chan, MidiState::getKey(event), velocity, state);
+				}
+			}
+			else if (event.event == MIDI_EVENT_PROGRAM || event.event == MIDI_EVENT_DRUMS) {
+				previousData = assignGenerator.generateAssignData(previousData);
+				channelAssignData.push_back(previousData.value());
+				assignGenerator = AssignDataGenerator(state, BASS_ChannelBytes2Seconds(handle, event.pos), &base);
+			}
+		}
+		channelAssignData.push_back(assignGenerator.generateAssignData(previousData));
+	}
+
+	AssignData& getAssign(double seconds) {
+		for (int i = 1; i < channelAssignData.size(); i++) {
+			if (channelAssignData[i].seconds > seconds) {
+				return channelAssignData[size_t(i) - 1];
+			}
+		}
+		return channelAssignData.back();
+	}
 
 	static int getPriorityScore(int basePriorityOrder, int checkedPriorityOrder) {
 		if (basePriorityOrder < 0 || checkedPriorityOrder < 0) {
@@ -22,95 +53,96 @@ private:
 		return basePriorityOrder - checkedPriorityOrder;
 	}
 
-	PlayScore calculatePlayScore(NesState const& nesState, NesChannel channel, Preset const& preset, int checkedMidiChannel, int checkedMidiKey, int checkedMidiVelocity,
-		double checkedMidiScore) const {
+	PlayScore calculatePlayScore(NesState const& nesState, NoteTriggerData const& checkedTrigger, int checkedMidiKey, int checkedMidiVelocity) const {
+		auto score = PlayScore(0, 0);
 
-		const PlayingNesNote& note = nesState.getNote(channel);
-		const NoteTriggerData& triggerData = note.triggerData;
+		const std::optional<PlayingNesNote>& note = nesState.getNote(checkedTrigger.nesChannel);
+		if (!note) {
+			return PlayScore(0, 2);
+		}
+
+		const NoteTriggerData& triggerData = note->triggerData;
 		int currentRow = nesState.getRow();
 
 		// don't interrupt current note with higher priorityOrder sound (e.g. crash with hi-hat)
-		if (nesState.seconds < note.canInterruptSeconds) {
-			// it interrupts, check priorities
-			if (getPriorityScore(triggerData.preset.drumKeyOrder, preset.drumKeyOrder) < 0) {
-				return PlayScore(0, -1);
-			}
-			if (checkedMidiScore < triggerData.midiScore) {
-				return PlayScore(0, -1);
-			}
+		if (nesState.seconds < note->canInterruptSeconds && getPriorityScore(triggerData.drumKeyOrder, checkedTrigger.drumKeyOrder) < 0) {
+			return PlayScore(0, -1);
 		}
 
-		PlayScore score{};
+		if (bool releaseDisabled = (checkedTrigger.nesChannel == NesChannel::NOISE || checkedTrigger.nesChannel == NesChannel::DPCM);
+			!note->playing || (releaseDisabled && currentRow != NesState::getRow(note->startSeconds))) { // note released
 
-		if (bool releaseDisabled = (channel == NesChannel::NOISE || channel == NesChannel::DPCM);
-			!note.playing || (releaseDisabled && currentRow != NesState::getRow(note.startSeconds))) { // note released
-
-			// bonus for the same midi channel
-			score.score[0] = (checkedMidiChannel == note.midiChannel ? 2 : 1);
+			score.scores[0] = 1;
 		}
 		else {
 			// note start time
-			score.score[3] = currentRow - NesState::getRow(note.startSeconds);
+			score.scores[2] = currentRow - NesState::getRow(note->startSeconds);
 
 			// note height
-			score.score[4] = checkedMidiKey - note.midiKey;
+			score.scores[3] = checkedMidiKey - note->midiKey;
 
 			// velocity
-			score.score[5] = checkedMidiVelocity - note.midiVelocity;
+			score.scores[4] = checkedMidiVelocity - note->midiVelocity;
 
 			// pulse 1-2 & triangle frequency limit
-			score.score[6] = (checkedMidiKey < Note::MIN_PLAYABLE_KEY && (channel == NesChannel::PULSE1 || channel == NesChannel::PULSE2 || channel == NesChannel::TRIANGLE) ? 0 : 1);
-
-			// bonus for the same midi channel
-			score.score[7] = (checkedMidiChannel == note.midiChannel ? 1 : 0);
+			score.scores[5] = (checkedMidiKey < Note::MIN_PLAYABLE_KEY && !Cell::isVrc6(checkedTrigger.nesChannel) ? 0 : 1);
 		}
 
 		// drum key priority
-		score.score[1] = getPriorityScore(triggerData.preset.drumKeyOrder, preset.drumKeyOrder);
-
-		// midi channel priority
-		score.score[2] = checkedMidiScore - triggerData.midiScore;
+		score.scores[1] = getPriorityScore(triggerData.drumKeyOrder, checkedTrigger.drumKeyOrder);
 
 		// make comparison with default value deterministic
-		score.score[8] = 1;
+		score.scores[6] = 1;
 		return score;
 	}
 
-	void addTrigger(std::vector<NoteTriggerData>& result, Preset& preset, int chan, int key, int velocity, MidiChannelState const& midiState, NesState const& nesState) {
-		std::vector<NesChannel> nesChannels = preset.getValidNesChannels();
-
-		if (nesChannels.empty()) {
+	void addTriggerIfPossible(std::vector<NoteTriggerData>& result, std::vector<NoteTriggerData> const& possibleTriggers, int key, int velocity, NesState const& nesState) {
+		if (possibleTriggers.empty()) {
 			return;
 		}
 
-		double midiScore = stats.getMidiScore(chan, midiState);
-		NesChannel bestChannel = nesChannels[0];
+		NoteTriggerData bestTrigger = possibleTriggers[0];
 		PlayScore bestScore(0, -1);
-		for (NesChannel nesChannel : nesChannels) {
-			PlayScore score = calculatePlayScore(nesState, nesChannel, preset, chan, key, velocity, midiScore);
+		for (NoteTriggerData const& trigger : possibleTriggers) {
+			PlayScore score = calculatePlayScore(nesState, trigger, key, velocity);
 			if (score.isBetterThan(bestScore, true)) {
-				bestChannel = nesChannel;
+				bestTrigger = trigger;
 				bestScore = score;
 			}
 		}
-		if (bestScore.isBetterThan(PlayScore(), true)) {
-			result.emplace_back(bestChannel, preset, midiScore);
+		if (bestScore.isBetterThan(PlayScore(0, 0), true)) {
+			result.push_back(bestTrigger);
 		}
 	}
 
 public:
-	void preprocess(std::vector<BASS_MIDI_EVENT>& events, FamiTrackerFile& file) {
+	void preprocess(HSTREAM handle, std::vector<BASS_MIDI_EVENT> const& events, FamiTrackerFile& file) {
 		base.fillBase(file);
-		stats.load(events);
-		InstrumentBaseModifier::tryModifyInstrumentBase(stats, base);
+		fillChannelAssignData(handle, events);
 	}
 
 	std::vector<NoteTriggerData> getNoteTriggers(int chan, int key, int velocity, MidiChannelState const& midiState, NesState const& nesState) {
-		std::vector<Preset> presets = base.getPresets(key, midiState);
 		std::vector<NoteTriggerData> result;
-		for (auto& preset : presets) {
-			addTrigger(result, preset, chan, key, velocity, midiState, nesState);
+
+		// drums can have multiple triggers (i.e. noise and dpcm for the same note)
+		// for normal instruments only one trigger is selected
+		if (midiState.useDrums) {
+			std::vector<Preset> presets = base.getDrumPresets(midiState.program, key);
+			for (auto const& preset : presets) {
+				std::vector<NesChannel> nesChannels = preset.getValidNesChannels();
+				for (auto const& nesChannel : nesChannels) {
+					addTriggerIfPossible(result, { NoteTriggerData(nesChannel, preset.duty, preset) }, key, velocity, nesState);
+				}
+			}
 		}
+		else {
+			const AssignChannelData& nesData = getAssign(nesState.seconds).getNesData(chan);
+			std::optional<Preset> preset = base.getGmPreset(midiState.program);
+			if (preset) {
+				addTriggerIfPossible(result, nesData.getTriggers(preset.value()), key, velocity, nesState);
+			}
+		}
+
 		return result;
 	}
 };

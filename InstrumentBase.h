@@ -5,7 +5,6 @@
 #include "FamiTrackerFile.h"
 #include "SampleBase.h"
 #include "PitchCalculator.h"
-#include "PresetSetup.h"
 
 class InstrumentBase {
 private:
@@ -26,7 +25,7 @@ private:
 				}
 				for (int pitch = 0; pitch <= sample.pitch; pitch++) {
 					double calculatedKey = PitchCalculator::calculatePitchedDmcKey(sample.note.key, pitch);
-					double score = (pitch - sample.pitch) * 0.25 - abs(targetKey - calculatedKey);
+					double score = (pitch - sample.pitch) * 0.25 - std::abs(targetKey - calculatedKey);
 					if (score > bestScore) {
 						bestIndex = i;
 						bestPitch = pitch;
@@ -137,14 +136,14 @@ private:
 	void createInstruments(FamiTrackerFile& file) {
 		auto loopMacro = file.addVolumeMacro({ 15, 0 }, -1, 0);
 		auto delayedLoopMacro = file.addVolumeMacro({ 0, 15, 0 }, -1, 1);
-		auto decayMacro = file.addVolumeMacro({ 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 });
-		auto longDecayMacro = file.addVolumeMacro({ 15, 14, 14, 13, 13, 12, 12, 11, 11, 10, 10, 9, 9, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 0 });
+		auto decayMacro = file.addVolumeMacro({ 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 0 });
+		auto longDecayMacro = file.addVolumeMacro({ 15, 14, 14, 13, 13, 12, 12, 11, 11, 10, 10, 9, 9, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0 });
 		auto attackMacro = file.addVolumeMacro({ 3, 7, 11, 15, 0 }, -1, 3);
 		auto stringsMacro = file.addVolumeMacro({ 3, 7, 11, 15, 5, 5, 5, 5, 5, 5, 5, 5, 0 }, -1, 3);
 		auto fastDecayMacro = file.addVolumeMacro({ 12, 9, 6, 3, 1, 0 });
 		auto openHatVolumeMacro = file.addVolumeMacro({ 15, 14, 12, 11, 10, 11, 12, 13, 13, 12, 11, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 });
 		auto clapVolumeMacro = file.addVolumeMacro({ 11, 7, 12, 8, 13, 8, 6, 4, 2, 0 });
-		auto analogOpenHatVolumeMacro = file.addVolumeMacro({ 15, 15, 15, 15, 15, 0 });
+		auto analogOpenHatVolumeMacro = file.addVolumeMacro({ 12, 12, 12, 12, 12, 0 });
 
 		auto snareArpeggioMacro = file.addArpeggioMacro({ -5, 2, 0 }, ArpeggioType::ABSOLUTE_);
 		auto openHatArpeggioMacro = file.addArpeggioMacro({ 2, 0, 2, 3, 4 }, ArpeggioType::ABSOLUTE_);
@@ -334,7 +333,7 @@ private:
 		gm[124] = {};
 		gm[125] = {};
 		gm[126] = {};
-		gm[127] = {};
+		gm[127] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, {}, Note(1), 5) };
 	}
 
 	void bindDrumSample(std::shared_ptr<DpcmSample> sample, std::shared_ptr<Instrument> instrument, int program, int key, int priorityOrder, int pitch = 15, bool looped = false) {
@@ -342,7 +341,7 @@ private:
 
 		std::vector<Preset>& presets = drums[program][key];
 		removeIf(presets, [](Preset const& preset) { return preset.channel == Preset::Channel::DPCM; });
-		presets.emplace_back(Preset::Channel::DPCM, instrument, Preset::Duty(-1), priorityOrder, Note(key));
+		presets.emplace_back(Preset::Channel::DPCM, instrument, Preset::Duty::ANY, priorityOrder, Note(key));
 	}
 
 	void fillDrums() {
@@ -350,17 +349,17 @@ private:
 		drums[0][35] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_NORMAL, 11, Note(12)) }; // kick
 		drums[0][36] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_NORMAL, 11, Note(12)) }; // kick
 		drums[0][38] = { Preset(Preset::Channel::NOISE, snare, Preset::Duty::NOISE_NORMAL, 10, Note(12)) }; // snare
-		drums[0][39] = { Preset(Preset::Channel::NOISE, clap, Preset::Duty(-1), 7, Note(8)) }; // clap
+		drums[0][39] = { Preset(Preset::Channel::NOISE, clap, Preset::Duty::ANY, 7, Note(8)) }; // clap
 		drums[0][40] = { Preset(Preset::Channel::NOISE, snare, Preset::Duty::NOISE_NORMAL, 10, Note(12)) }; // snare
 		drums[0][42] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_NORMAL, 9, Note(12)) }; // hi-hat
 		drums[0][44] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_NORMAL, 9, Note(12)) }; // hi-hat
 		drums[0][46] = { Preset(Preset::Channel::NOISE, openHat, Preset::Duty::NOISE_NORMAL, 8, Note(9)) }; // open hi-hat
-		drums[0][49] = { Preset(Preset::Channel::NOISE, crash, Preset::Duty::NOISE_NORMAL, 1, Note(9), true) }; // crash 1
+		drums[0][49] = { Preset(Preset::Channel::NOISE, crash, Preset::Duty::NOISE_NORMAL, 1, Note(9), 15) }; // crash 1
 		drums[0][51] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_NORMAL, 9, Note(12)) }; // ride cymbal 1
-		drums[0][52] = { Preset(Preset::Channel::NOISE, crash, Preset::Duty::NOISE_NORMAL, 3, Note(6), true) }; // chinese cymbal
+		drums[0][52] = { Preset(Preset::Channel::NOISE, crash, Preset::Duty::NOISE_NORMAL, 3, Note(6), 15) }; // chinese cymbal
 		drums[0][53] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_NORMAL, 9, Note(12)) }; // ride bell
-		drums[0][55] = { Preset(Preset::Channel::NOISE, crash, Preset::Duty::NOISE_NORMAL, 4, Note(13), true) }; // splash
-		drums[0][57] = { Preset(Preset::Channel::NOISE, crash, Preset::Duty::NOISE_NORMAL, 2, Note(10), true) }; // crash 2
+		drums[0][55] = { Preset(Preset::Channel::NOISE, crash, Preset::Duty::NOISE_NORMAL, 4, Note(13), 15) }; // splash
+		drums[0][57] = { Preset(Preset::Channel::NOISE, crash, Preset::Duty::NOISE_NORMAL, 2, Note(10), 15) }; // crash 2
 		drums[0][59] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_NORMAL, 9, Note(12)) }; // ride cymbal 2
 		drums[0][80] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_LOOP, 12, Note(15)) }; // triangle closed
 		drums[0][81] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_LOOP, 12, Note(15)) }; // triangle open
@@ -380,14 +379,14 @@ private:
 
 		// hard drums
 		drums[16] = drums[0];
-		drums[16][38] = { Preset(Preset::Channel::NOISE, hardSnare, Preset::Duty::NOISE_NORMAL, 5, Note(6), true) }; // snare
-		drums[16][40] = { Preset(Preset::Channel::NOISE, hardSnare, Preset::Duty::NOISE_NORMAL, 5, Note(6), true) }; // snare
-		drums[16][41] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(2), true) }; // tom
-		drums[16][43] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(3), true) }; // tom
-		drums[16][45] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(4), true) }; // tom
-		drums[16][47] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(5), true) }; // tom
-		drums[16][48] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(6), true) }; // tom
-		drums[16][50] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(7), true) }; // tom
+		drums[16][38] = { Preset(Preset::Channel::NOISE, hardSnare, Preset::Duty::NOISE_NORMAL, 5, Note(6), 5) }; // snare
+		drums[16][40] = { Preset(Preset::Channel::NOISE, hardSnare, Preset::Duty::NOISE_NORMAL, 5, Note(6), 5) }; // snare
+		drums[16][41] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(2), 5) }; // tom
+		drums[16][43] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(3), 5) }; // tom
+		drums[16][45] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(4), 5) }; // tom
+		drums[16][47] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(5), 5) }; // tom
+		drums[16][48] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(6), 5) }; // tom
+		drums[16][50] = { Preset(Preset::Channel::NOISE, decay, Preset::Duty::NOISE_NORMAL, 6, Note(7), 5) }; // tom
 		bindDrumSample(dpcm.samples.hardKick, dpcm.hardDrums, 16, 35, 3);
 		bindDrumSample(dpcm.samples.hardKick, dpcm.hardDrums, 16, 36, 3);
 		drums[24] = drums[16];
@@ -403,12 +402,12 @@ private:
 
 		// orchestra
 		drums[48] = drums[0];
-		drums[48][38] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_NORMAL, 5, Note(9), true) }; // snare
-		drums[48][40] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_NORMAL, 5, Note(9), true) }; // snare
-		drums[48][59] = { Preset(Preset::Channel::NOISE, crash, Preset::Duty::NOISE_NORMAL, 1, Note(9), true) }; // crash 1
+		drums[48][38] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_NORMAL, 5, Note(9)) }; // snare
+		drums[48][40] = { Preset(Preset::Channel::NOISE, fastDecay, Preset::Duty::NOISE_NORMAL, 5, Note(9)) }; // snare
+		drums[48][59] = { Preset(Preset::Channel::NOISE, crash, Preset::Duty::NOISE_NORMAL, 1, Note(9), 15) }; // crash 1
 		bindDrumSample(dpcm.samples.stick, dpcm.standardDrums, 0, 39, 4);
 		for (int key = 41; key <= 53; key++) {
-			drums[48][key] = { Preset(Preset::Channel::DPCM, dpcm.timpani, Preset::Duty(-1), 2) };
+			drums[48][key] = { Preset(Preset::Channel::DPCM, dpcm.timpani, Preset::Duty::ANY, 2) };
 		}
 
 		// clear sfx
@@ -425,7 +424,7 @@ public:
 		fillDrums();
 	}
 
-	std::optional<Preset> getGmPreset(int program) {
+	std::optional<Preset> getGmPreset(int program) const {
 		return gm[program];
 	}
 
@@ -435,25 +434,5 @@ public:
 			it = drums.find(0);
 		}
 		return it->second[key];
-	}
-
-	std::vector<Preset> getPresets(int key, MidiChannelState const& midiState) {
-		if (midiState.useDrums) {
-			return getDrumPresets(midiState.program, key);
-		}
-		else {
-			std::optional<Preset> preset = getGmPreset(midiState.program);
-			if (preset) {
-				return { preset.value() };
-			}
-			else {
-				return {};
-			}
-		}
-	}
-
-	void updatePreset(int program, PresetSetup const& newSetup) {
-		gm[program]->channel = newSetup.channel;
-		gm[program]->duty = newSetup.duty;
 	}
 };

@@ -6,19 +6,17 @@
 class Preset {
 public:
 	enum class Channel { PULSE, TRIANGLE, NOISE, DPCM, SAWTOOTH };
-	enum class Duty { PULSE_12, PULSE_25, PULSE_50, NOISE_NORMAL, NOISE_LOOP };
+	enum class Duty { ANY, PULSE_12, PULSE_25, PULSE_50, NOISE_NORMAL, NOISE_LOOP };
 
-	Channel channel = Channel(-1);
+	Channel channel;
 	std::shared_ptr<Instrument> instrument;
-	Duty duty = Duty(-1);
-	int drumKeyOrder = -1;
-	Note note{};
-	bool uninterrupted = false;
+	Duty duty;
+	int drumKeyOrder;
+	std::optional<Note> note;
+	int uninterruptedTicks;
 
-	Preset() = default;
-
-	Preset(Channel channel, std::shared_ptr<Instrument> instrument, Duty duty = Duty(-1), int drumKeyOrder = -1, Note note = {}, bool uninterrupted = false) :
-		channel(channel), instrument(instrument), duty(duty), drumKeyOrder(drumKeyOrder), note(note), uninterrupted(uninterrupted) {}
+	Preset(Channel channel, std::shared_ptr<Instrument> instrument, Duty duty = Duty::ANY, int drumKeyOrder = -1, std::optional<Note> note = {}, int uninterruptedTicks = 0) :
+		channel(channel), instrument(instrument), duty(duty), drumKeyOrder(drumKeyOrder), note(note), uninterruptedTicks(uninterruptedTicks) {}
 
 	std::vector<NesChannel> getValidNesChannels() const {
 		switch (channel) {
@@ -35,9 +33,5 @@ public:
 		default:
 			return {};
 		}
-	}
-
-	int getUninterruptedTicks() const {
-		return uninterrupted && instrument && instrument->volumeMacro ? int(instrument->volumeMacro->values.size()) : 0;
 	}
 };

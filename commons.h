@@ -12,6 +12,9 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
+#include <numeric>
+#include <bitset>
+#include <functional>
 
 #include "bass.h"
 #include "bassmidi.h"

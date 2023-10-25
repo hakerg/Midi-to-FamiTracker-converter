@@ -8,9 +8,7 @@ public:
 	static const int MIN_KEY = 24;
 	static const int MIN_PLAYABLE_KEY = 33;
 	static const int MAX_KEY = 119;
-	int key = -1;
-
-	Note() = default;
+	int key;
 
 	explicit Note(int key, bool bound = false) : key(bound ? max(MIN_KEY, min(MAX_KEY, key)) : key) {}
 

@@ -5,7 +5,12 @@
 class MidiState {
 private:
     void midiNote(int chan, int key, int velocity) {
-        getChannel(chan).velocities[key] = (velocity == 255 ? 0 : velocity);
+        if (velocity == 0 || velocity == 255) {
+            getChannel(chan).noteVelocities.erase(key);
+        }
+        else {
+            getChannel(chan).noteVelocities.insert(std::pair<int, int>(key, velocity));
+        }
     }
 
     void setProgram(int chan, int preset) {

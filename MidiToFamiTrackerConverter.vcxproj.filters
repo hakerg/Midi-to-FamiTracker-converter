@@ -110,16 +110,19 @@
     <ClInclude Include="PlayScore.h">
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
-    <ClInclude Include="PresetStatistics.h">
+    <ClInclude Include="SoundWaveProfile.h">
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
-    <ClInclude Include="PresetSetup.h">
+    <ClInclude Include="AssignData.h">
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
-    <ClInclude Include="PresetScores.h">
+    <ClInclude Include="AssignDataGenerator.h">
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
-    <ClInclude Include="InstrumentBaseModifier.h">
+    <ClInclude Include="AssignChannelData.h">
+      <Filter>Pliki nagłówkowe\Conversion</Filter>
+    </ClInclude>
+    <ClInclude Include="NesChannelSet.h">
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
   </ItemGroup>

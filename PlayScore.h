@@ -3,28 +3,18 @@
 
 class PlayScore {
 public:
-    std::array<double, 9> score;
-
-    PlayScore() = default;
+    std::array<double, 7> scores{};
 
     PlayScore(int level, double score) {
-        this->score[level] = score;
+        scores[level] = score;
     }
 
     bool isBetterThan(PlayScore other, bool resultOnEqual) const {
-        for (int i = 0; i < score.size(); i++) {
-            if (score[i] != other.score[i]) {
-                return score[i] > other.score[i];
+        for (int i = 0; i < scores.size(); i++) {
+            if (scores[i] != other.scores[i]) {
+                return scores[i] > other.scores[i];
             }
         }
         return resultOnEqual;
-    }
-
-    static PlayScore reduce(PlayScore a, PlayScore b) {
-        PlayScore score{};
-        for (int i = 0; i < score.score.size(); i++) {
-            score.score[i] = a.score[i] + b.score[i];
-        }
-        return score;
     }
 };

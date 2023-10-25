@@ -3,7 +3,7 @@
 
 class MidiChannelState {
 public:
-    std::array<int, 128> velocities{};
+    std::unordered_map<int, int> noteVelocities;
     int program = 0;
     double volume = 1;
     int bank = 0;
@@ -23,18 +23,10 @@ public:
     }
 
     void stopAllNotes() {
-        for (int i = 0; i < 128; i++) {
-            velocities[i] = 0;
-        }
+        noteVelocities.clear();
     }
 
-    std::vector<int> getActiveKeys() const {
-		std::vector<int> keys;
-        for (int i = 0; i < 128; i++) {
-            if (velocities[i] > 0) {
-                keys.push_back(i);
-            }
-        }
-        return keys;
+    bool isPlaying(int key) const {
+        return noteVelocities.find(key) != noteVelocities.end();
     }
 };

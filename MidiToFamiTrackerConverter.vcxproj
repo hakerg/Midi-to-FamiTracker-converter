@@ -139,8 +139,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AssignChannelData.h" />
     <ClInclude Include="bassmidi.h" />
     <ClInclude Include="Cell.h" />
+    <ClInclude Include="AssignData.h" />
     <ClInclude Include="commons.h" />
     <ClInclude Include="Converter.h" />
     <ClInclude Include="DpcmSample.h" />
@@ -148,12 +150,12 @@
     <ClInclude Include="FamiTrackerFile.h" />
     <ClInclude Include="Instrument.h" />
     <ClInclude Include="InstrumentBase.h" />
-    <ClInclude Include="InstrumentBaseModifier.h" />
     <ClInclude Include="KeyDpcmSample.h" />
     <ClInclude Include="Macro.h" />
     <ClInclude Include="MidiChannelState.h" />
     <ClInclude Include="InstrumentSelector.h" />
     <ClInclude Include="MidiState.h" />
+    <ClInclude Include="NesChannelSet.h" />
     <ClInclude Include="NesState.h" />
     <ClInclude Include="Note.h" />
     <ClInclude Include="NoteTriggerData.h" />
@@ -164,10 +166,9 @@
     <ClInclude Include="PlayingNesNote.h" />
     <ClInclude Include="PlayScore.h" />
     <ClInclude Include="Preset.h" />
-    <ClInclude Include="PresetScores.h" />
-    <ClInclude Include="PresetSetup.h" />
-    <ClInclude Include="PresetStatistics.h" />
+    <ClInclude Include="SoundWaveProfile.h" />
     <ClInclude Include="SampleBase.h" />
+    <ClInclude Include="AssignDataGenerator.h" />
     <ClInclude Include="Track.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
