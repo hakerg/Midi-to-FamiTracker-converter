@@ -2,11 +2,14 @@
 #include "commons.h"
 
 class PlayScore {
-public:
-    std::array<double, 7> scores{};
+private:
+    std::array<double, 6> scores{};
 
-    PlayScore(int level, double score) {
-        scores[level] = score;
+public:
+    enum class Level { INTERRUPTS, PLAYING, PLAYABLE_RANGE, NOTE_TIME, NOTE_HEIGHT, VELOCITY };
+
+    explicit PlayScore(double defaultScore) {
+        scores[0] = defaultScore;
     }
 
     bool isBetterThan(PlayScore other, bool resultOnEqual) const {
@@ -16,5 +19,17 @@ public:
             }
         }
         return resultOnEqual;
+    }
+
+    PlayScore substract(PlayScore other) const {
+        PlayScore newScore(0);
+        for (int i = 0; i < scores.size(); i++) {
+            newScore.scores[i] = scores[i] - other.scores[i];
+        }
+        return newScore;
+    }
+
+    void set(Level level, double score) {
+        scores[int(level)] = score;
     }
 };

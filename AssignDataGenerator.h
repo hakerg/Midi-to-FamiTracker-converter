@@ -10,7 +10,7 @@ class AssignDataGenerator {
 private:
 	static constexpr double NOTES_BELOW_RANGE_PUNISHMENT = 2;
 	static constexpr double NOTE_INTERRUPTING_PUNISHMENT = 4;
-	static constexpr double TONE_OVERLAP_PUNISHMENT = 0.3;
+	static constexpr bool USE_VRC6 = false;
 
 	static std::vector<int> getSortedIndices(std::array<double, 16> const& array) {
 		std::vector<int> indices(16);
@@ -41,6 +41,17 @@ private:
 		return count;
 	}
 
+	double getChannelChordMultiplier(AssignData const& assignData, int chan) const {
+		int count = 0;
+		double multiplier = 0;
+		for (int i = 1; i <= assignData.getNesData(chan).nesChannels.size(); i++) {
+			int chordCount = getChordCount(chan, i);
+			count += chordCount;
+			multiplier += chordCount / double(i * 3.0 - 2);
+		}
+		return multiplier / count;
+	}
+
 	double getPlayedNotesRatio(AssignData const& assignData, int chan) const {
 		return notes[chan] == 0 ? 0 : countPlayedNotes(assignData, chan) / double(notes[chan]);
 	}
@@ -64,12 +75,22 @@ private:
 
 			double playedNotesRatio = getPlayedNotesRatio(assignData, chan);
 			double notesScore = notes[chan] * playedNotesRatio;
-			notesScore -= NOTES_BELOW_RANGE_PUNISHMENT * notesBelowNesRange[chan] * playedNotesRatio * nesData.getPoorFreqRangeChannelRatio();
-			notesScore -= NOTE_INTERRUPTING_PUNISHMENT * countInterruptingNotes(assignData, chan);
-			notesScore -= TONE_OVERLAP_PUNISHMENT * countOverlappingNotes(assignData, chan);
+
+			double outOfRangePunishment = 0;
+			for (int i = 0; i < Pattern::CHANNELS; i++) {
+				outOfRangePunishment += NOTES_BELOW_RANGE_PUNISHMENT * notesOutOfRange[chan][i] * playedNotesRatio * nesData.getChannelRatio(NesChannel(i));
+			}
+
+			double noteInterruptingPunishment = NOTE_INTERRUPTING_PUNISHMENT * countInterruptingNotes(assignData, chan);
+
+			notesScore -= outOfRangePunishment + noteInterruptingPunishment;
 
 			// getAudioSimilarity() checks how much provided nesData is similar to original instrument from the base
-			assignData.score.value() += notesScore * avgVolumes[chan] * getAudioSimilarity(preset.value(), nesData);
+			double audioSimilarity = getAudioSimilarity(preset.value(), nesData);
+			double channelChordMultiplier = getChannelChordMultiplier(assignData, chan);
+
+			double channelScore = notesScore * avgVolumes[chan] * audioSimilarity * channelChordMultiplier;
+			assignData.score.value() += channelScore;
 		}
 
 		return assignData.score.value();
@@ -91,43 +112,37 @@ private:
 		return count;
 	}
 
-	double countOverlappingNotes(AssignData const& assignData, int chan) const {
-		double count = 0;
-		double playedNotesRatio = getPlayedNotesRatio(assignData, chan);
-		for (int chan2 = 0; chan2 < 16; chan2++) {
-			double playedNotesRatio2 = getPlayedNotesRatio(assignData, chan2);
-			count += soundOverlappingNotes[chan][chan2] * playedNotesRatio * playedNotesRatio2;
-		}
-		return count;
-	}
-
 	static std::vector<AssignChannelData> getMelodicAssignConfigurations(Preset const& preset) {
 		std::vector<AssignChannelData> results;
 
 		std::array<Preset::Duty, 4> pulseDuties = { Preset::Duty::ANY, Preset::Duty::PULSE_12, Preset::Duty::PULSE_25, Preset::Duty::PULSE_50 };
 		for (Preset::Duty duty : pulseDuties) {
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE4 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE3 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE3, NesChannel::PULSE4 }));
+			if (USE_VRC6) {
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE4 }));
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE3 }));
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE3, NesChannel::PULSE4 }));
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE2, NesChannel::PULSE4 }));
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE2, NesChannel::PULSE3 }));
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE2, NesChannel::PULSE3, NesChannel::PULSE4 }));
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE4 }));
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE3 }));
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE3, NesChannel::PULSE4 }));
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE2, NesChannel::PULSE4 }));
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE2, NesChannel::PULSE3 }));
+				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE2, NesChannel::PULSE3, NesChannel::PULSE4 }));
+			}
 			results.push_back(AssignChannelData(duty, { NesChannel::PULSE2 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE2, NesChannel::PULSE4 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE2, NesChannel::PULSE3 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE2, NesChannel::PULSE3, NesChannel::PULSE4 }));
 			results.push_back(AssignChannelData(duty, { NesChannel::PULSE1 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE4 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE3 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE3, NesChannel::PULSE4 }));
 			results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE2 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE2, NesChannel::PULSE4 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE2, NesChannel::PULSE3 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE2, NesChannel::PULSE3, NesChannel::PULSE4 }));
 		}
 
 		// cannot use triangle to play i.e. piano, because triangle does not decay
 		if (preset.instrument && preset.instrument->volumeMacro && preset.instrument->volumeMacro->releasePosition >= 0) {
 			results.push_back(AssignChannelData(Preset::Duty::ANY, { NesChannel::TRIANGLE }));
 		}
-		results.push_back(AssignChannelData(Preset::Duty::ANY, { NesChannel::SAWTOOTH }));
+		if (USE_VRC6) {
+			results.push_back(AssignChannelData(Preset::Duty::ANY, { NesChannel::SAWTOOTH }));
+		}
 
 		return results;
 	}
@@ -201,8 +216,8 @@ public:
 	// how many notes appeared for every channel
 	std::array<int, 16> notes{};
 
-	// count of notes playable only in VRC6 channels
-	std::array<int, 16> notesBelowNesRange{};
+	// [midi channel][nes channel]
+	std::array<std::array<int, Pattern::CHANNELS>, 16> notesOutOfRange{};
 
 	// sum of volumes for notes above
 	std::array<double, 16> volumeSum{};
@@ -216,9 +231,6 @@ public:
 	// [interrupting chan][interruped chan]
 	std::array<std::array<int, 16>, 16> interruptingNotes{};
 
-	// [overlapping chan][overlapped chan]
-	std::array<std::array<int, 16>, 16> soundOverlappingNotes{};
-
 	explicit AssignDataGenerator(MidiState const& midiState, double seconds, InstrumentBase* instrumentBase) :
 		originMidiState(midiState), originSeconds(seconds), instrumentBase(instrumentBase) {}
 
@@ -229,11 +241,15 @@ public:
 		}
 
 		notes[chan]++;
-		// needed to lower MIN_PLAYABLE_KEY, because triangle is played octave higher anyway
-		if (key < Note::MIN_PLAYABLE_KEY - 12) {
-			notesBelowNesRange[chan]++;
+		for (int i = 0; i < Pattern::CHANNELS; i++) {
+			if (!Note::isInPlayableRange(NesChannel(i), key)) {
+				notesOutOfRange[chan][i]++;
+			}
 		}
-		volumeSum[chan] += currentState.getChannel(chan).getNoteVolume(velocity);
+
+		// added small amount to fix i.e. the strings in DOOM - E1M2
+		volumeSum[chan] += currentState.getChannel(chan).getNoteVolume(velocity) + 0.01;
+
 		avgVolumes[chan] = volumeSum[chan] / notes[chan];
 		auto noteCount = int(currentState.getChannel(chan).noteVelocities.size());
 		chords[chan][noteCount]++;
@@ -250,11 +266,6 @@ public:
 
 				if (chan != chan2) {
 					interruptingNotes[chan][chan2]++;
-				}
-
-				// check if two keys are the same tone (may be different octave)
-				if (key % 12 == key2 % 12) {
-					soundOverlappingNotes[chan][chan2]++;
 				}
 			}
 		}

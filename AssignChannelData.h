@@ -41,10 +41,10 @@ public:
 		}
 	}
 
-	double getPoorFreqRangeChannelRatio() const {
+	double getChannelRatio(NesChannel nesChannel) const {
 		int count = 0;
-		for (NesChannel nesChannel : nesChannels) {
-			if (nesChannel == NesChannel::PULSE1 || nesChannel == NesChannel::PULSE2 || nesChannel == NesChannel::TRIANGLE) {
+		for (NesChannel c : nesChannels) {
+			if (nesChannel == c) {
 				count++;
 			}
 		}

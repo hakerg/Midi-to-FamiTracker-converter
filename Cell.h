@@ -4,8 +4,6 @@
 #include "Effect.h"
 #include "Instrument.h"
 
-enum class NesChannel { PULSE1, PULSE2, TRIANGLE, NOISE, DPCM, PULSE3, PULSE4, SAWTOOTH };
-
 class Cell {
 private:
 	std::wstring getInstrumentText(NesChannel channel) const {

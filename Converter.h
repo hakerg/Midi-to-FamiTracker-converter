@@ -8,9 +8,10 @@
 
 class Converter {
 private:
-    static const int ROWS_PER_PATTERN = 256;
+    static constexpr int ROWS_PER_PATTERN = 256;
+    static constexpr double MAX_DETUNE_SEMITONES = 0.2;
 
-    std::array<double, Pattern::CHANNELS> nesVolumeFactor = { 0.6, 0.6, 1.0, 0.8, 1.0, 0.6, 0.6, 0.5 };
+    std::array<double, Pattern::CHANNELS> nesVolumeFactor = { 0.6, 0.6, 1.0, 0.8, 1.0, 0.6, 0.6, 0.6 };
 
     InstrumentSelector instrumentSelector;
     FamiTrackerFile file;
@@ -26,46 +27,14 @@ private:
         return track->patterns[pattern];
     }
 
+    Cell* getPreviousCell(NesChannel channel) {
+        int row = nesState.getRow() - 1;
+        return row < 0 ? nullptr : &(getPattern(row / ROWS_PER_PATTERN)->getCell(channel, row % ROWS_PER_PATTERN));
+    }
+
     Cell& getCurrentCell(NesChannel channel) {
         int row = nesState.getRow();
 		return getPattern(row / ROWS_PER_PATTERN)->getCell(channel, row % ROWS_PER_PATTERN);
-    }
-
-    bool willOverlapAudio(NesChannel ignoreChannel, int key, int detuneIndex, bool checkOtherOctaves) {
-        for (int i = 0; i < Pattern::CHANNELS; i++) {
-            auto nesChannel = NesChannel(i);
-            if (nesChannel == ignoreChannel) {
-                continue;
-            }
-            if (nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM) {
-                continue;
-            }
-            std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
-            if (note && note->playing && detuneIndex == note->detuneIndex && ((checkOtherOctaves && note->midiKey % 12 == key % 12) || (!checkOtherOctaves && note->midiKey == key))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    int getDetuneIndex(NesChannel ignoreChannel, int key) {
-        // detune unnecessary with these channels
-        if (ignoreChannel == NesChannel::NOISE || ignoreChannel == NesChannel::DPCM) {
-            return 0;
-        }
-
-        // index means fractions of semitones
-        int index = 0;
-        // check other octaves only if detune is not so high
-        while (willOverlapAudio(ignoreChannel, key, index, index >= -1 && index <= -1)) {
-            if (index <= 0) {
-                index = -index + 1;
-            }
-            else {
-                index = -index;
-            }
-        }
-        return index;
     }
 
     void stopNote(NesChannel nesChannel, Cell::Type stopType) {
@@ -106,28 +75,49 @@ private:
         }
     }
 
-    void midiNoteOn(int chan, int key, int velocity) {
+    void midiNoteOn(int chan, int key, int velocity, bool pitchChangeNote, int keyAfterPitch) {
         auto triggerData = instrumentSelector.getNoteTriggers(chan, key, velocity, midiState.getChannel(chan), nesState);
 
         for (auto& data : triggerData) {
-            // uninterrupted time was too long, so it's divided
-            double canInterruptSeconds = nesState.seconds + data.uninterruptedTicks / 60.0;
             // used to slightly detune notes with the same frequency as on different channels to avoid audio wave overlapping/cancelling
-            int detuneIndex = getDetuneIndex(data.nesChannel, key);
-            nesState.setNote(data.nesChannel, PlayingNesNote(chan, key, velocity, detuneIndex, nesState.seconds, data, canInterruptSeconds));
+            int detuneIndex = nesState.getDetuneIndex(data.nesChannel, key);
+            if (!pitchChangeNote) {
+                double canInterruptSeconds = nesState.seconds + data.uninterruptedTicks / 60.0;
+                nesState.setNote(data.nesChannel, PlayingNesNote(chan, key, velocity, detuneIndex, nesState.seconds, data, canInterruptSeconds));
+            }
+            else {
+                std::optional<PlayingNesNote>& note = nesState.getNote(data.nesChannel);
+                if (note) {
+                    note->keyAfterPitch = keyAfterPitch;
+                    note->detuneIndex = detuneIndex;
+                }
+            }
 
             // triangle needs to be played octave higher to sound better
-            Note nesKey(data.nesChannel == NesChannel::TRIANGLE ? key + 12 : key, data.nesChannel != NesChannel::NOISE);
+            Note nesKey(data.nesChannel == NesChannel::TRIANGLE ? keyAfterPitch + 12 : keyAfterPitch, data.nesChannel != NesChannel::NOISE);
 
             Cell& currentCell = getCurrentCell(data.nesChannel);
             currentCell.Note(data.note ? data.note.value() : nesKey, data.instrument);
+
+            setNesPitch(chan, data.nesChannel, key, detuneIndex, keyAfterPitch);
+
+            if (pitchChangeNote) {
+                continue;
+            }
+
             setNesVolume(chan, data.nesChannel, velocity);
-            setNesPitch(chan, data.nesChannel, key, detuneIndex);
 
             // set duty if requested
-            std::optional<NesDuty> duty = data.getNesDuty();
-            if (duty) {
+            if (std::optional<NesDuty> duty = data.getNesDuty(); duty) {
                 currentCell.Duty(duty.value());
+            }
+
+            // mute previous tick to clearly hear the note
+            if (data.nesChannel != NesChannel::NOISE && data.nesChannel != NesChannel::DPCM) {
+                Cell* previousCell = getPreviousCell(data.nesChannel);
+                if (previousCell && (previousCell->type == Cell::Type::EMPTY || previousCell->type == Cell::Type::RELEASE)) {
+                    previousCell->volume = 0;
+                }
             }
         }
     }
@@ -140,19 +130,37 @@ private:
             stopNote(chan, key, Cell::Type::STOP);
         }
         else {
-			midiNoteOn(chan, key, velocity);
+			midiNoteOn(chan, key, velocity, false, key);
         }
     }
 
-    void setNesPitch(int midiChan, NesChannel nesChannel, int key, int detuneIndex) {
+	// keyAfterPitch is currently playing key due to pitch change, key is the original one from midi event
+    void setNesPitch(int midiChan, NesChannel nesChannel, int key, int detuneIndex, int keyAfterPitch) {
         // ignore for noise and DPCM
         if (nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM) {
             return;
         }
 
-        double basePeriod = PitchCalculator::calculatePeriodByKey(nesChannel, key);
-        double pitchedPeriod = PitchCalculator::calculatePeriodByKey(nesChannel, key + 0.1 * detuneIndex + midiState.getChannel(midiChan).getNotePitch());
-        getCurrentCell(nesChannel).FinePitch(max(0, min(255, 128 + int(round(basePeriod - pitchedPeriod)))));
+        double targetKey = key + midiState.getChannel(midiChan).getNotePitch();
+        double targetPeriod = PitchCalculator::calculatePeriodByKey(nesChannel, targetKey) - detuneIndex;
+
+        // detune cannot be too high
+        if (double resultKey = PitchCalculator::calculateKeyByPeriod(nesChannel, targetPeriod);
+            std::abs(resultKey - targetKey) > MAX_DETUNE_SEMITONES) {
+
+            setNesPitch(midiChan, nesChannel, key, 0, keyAfterPitch);
+            return;
+        }
+
+        double basePeriod = PitchCalculator::calculatePeriodByKey(nesChannel, keyAfterPitch);
+        int finePitch = 128 + int(round(basePeriod - targetPeriod));
+        if (finePitch >= 0 && finePitch <= 255) {
+            getCurrentCell(nesChannel).FinePitch(finePitch);
+        }
+        else if (std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel); note && note->playing) {
+			// when pitch is out of range for FamiTracker, we need to create a new note
+            midiNoteOn(midiChan, key, note->midiVelocity, true, int(round(targetKey)));
+        }
     }
 
     void updateNesPitch(int midiChan) {
@@ -160,7 +168,7 @@ private:
             auto nesChannel = NesChannel(i);
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
             if (note && note->midiChannel == midiChan) {
-                setNesPitch(midiChan, nesChannel, note->midiKey, note->detuneIndex);
+                setNesPitch(midiChan, nesChannel, note->midiKey, note->detuneIndex, note->keyAfterPitch);
             }
         }
     }
@@ -225,6 +233,7 @@ private:
             case MIDI_EVENT_NOTESOFF:
                 stopAllNotes(event.chan, Cell::Type::RELEASE);
                 break;
+            // TODO: vibrato, portamento, arpeggio
 
             case MIDI_EVENT_SYSTEM:
             case MIDI_EVENT_SYSTEMEX:

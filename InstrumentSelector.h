@@ -12,6 +12,8 @@
 
 class InstrumentSelector {
 private:
+	static constexpr bool LOWER_NOTES_FIRST = false;
+
 	InstrumentBase base;
 	std::vector<AssignData> channelAssignData;
 
@@ -29,9 +31,14 @@ private:
 				}
 			}
 			else if (event.event == MIDI_EVENT_PROGRAM || event.event == MIDI_EVENT_DRUMS) {
-				previousData = assignGenerator.generateAssignData(previousData);
-				channelAssignData.push_back(previousData.value());
-				assignGenerator = AssignDataGenerator(state, BASS_ChannelBytes2Seconds(handle, event.pos), &base);
+				if (assignGenerator.notes[event.chan] > 0) {
+					previousData = assignGenerator.generateAssignData(previousData);
+					channelAssignData.push_back(previousData.value());
+					assignGenerator = AssignDataGenerator(state, BASS_ChannelBytes2Seconds(handle, event.pos), &base);
+				}
+				else {
+					assignGenerator.originMidiState = state;
+				}
 			}
 		}
 		channelAssignData.push_back(assignGenerator.generateAssignData(previousData));
@@ -46,53 +53,72 @@ private:
 		return channelAssignData.back();
 	}
 
-	static int getPriorityScore(int basePriorityOrder, int checkedPriorityOrder) {
-		if (basePriorityOrder < 0 || checkedPriorityOrder < 0) {
-			return 0;
-		}
-		return basePriorityOrder - checkedPriorityOrder;
-	}
-
 	PlayScore calculatePlayScore(NesState const& nesState, NoteTriggerData const& checkedTrigger, int checkedMidiKey, int checkedMidiVelocity) const {
-		auto score = PlayScore(0, 0);
-
-		const std::optional<PlayingNesNote>& note = nesState.getNote(checkedTrigger.nesChannel);
-		if (!note) {
-			return PlayScore(0, 2);
-		}
-
-		const NoteTriggerData& triggerData = note->triggerData;
-		int currentRow = nesState.getRow();
+		auto score = PlayScore(0);
 
 		// don't interrupt current note with higher priorityOrder sound (e.g. crash with hi-hat)
-		if (nesState.seconds < note->canInterruptSeconds && getPriorityScore(triggerData.drumKeyOrder, checkedTrigger.drumKeyOrder) < 0) {
-			return PlayScore(0, -1);
+		if (const std::optional<PlayingNesNote>& note = nesState.getNote(checkedTrigger.nesChannel);
+			note && nesState.seconds < note->canInterruptSeconds && checkedTrigger.drumKeyOrder > note->triggerData.drumKeyOrder) {
+
+			score.set(PlayScore::Level::INTERRUPTS, -1);
 		}
 
-		if (bool releaseDisabled = (checkedTrigger.nesChannel == NesChannel::NOISE || checkedTrigger.nesChannel == NesChannel::DPCM);
-			!note->playing || (releaseDisabled && currentRow != nesState.getRow(note->startSeconds))) { // note released
+		score.set(PlayScore::Level::PLAYING, 2);
 
-			score.scores[0] = 1;
+		// frequency limit
+		score.set(PlayScore::Level::PLAYABLE_RANGE, Note::isInPlayableRange(checkedTrigger.nesChannel, checkedMidiKey) ? 1 : 0);
+
+		// note height | priority
+		if (checkedTrigger.drumKeyOrder != Preset::DEFAULT_DRUM_KEY_ORDER) {
+			score.set(PlayScore::Level::NOTE_HEIGHT, -checkedTrigger.drumKeyOrder);
 		}
 		else {
-			// note start time
-			score.scores[2] = currentRow - nesState.getRow(note->startSeconds);
-
-			// note height
-			score.scores[3] = checkedMidiKey - note->midiKey;
-
-			// velocity
-			score.scores[4] = checkedMidiVelocity - note->midiVelocity;
-
-			// pulse 1-2 & triangle frequency limit
-			score.scores[5] = (checkedMidiKey < Note::MIN_PLAYABLE_KEY && !Cell::isVrc6(checkedTrigger.nesChannel) ? 0 : 1);
+			score.set(PlayScore::Level::NOTE_HEIGHT, LOWER_NOTES_FIRST ? -checkedMidiKey : checkedMidiKey);
 		}
 
-		// drum key priority
-		score.scores[1] = getPriorityScore(triggerData.drumKeyOrder, checkedTrigger.drumKeyOrder);
+		// velocity
+		score.set(PlayScore::Level::VELOCITY, checkedMidiVelocity);
+		return score;
+	}
 
-		// make comparison with default value deterministic
-		score.scores[6] = 1;
+	PlayScore calculateCurrentPlayScore(NesState const& nesState, NesChannel nesChannel) {
+		auto score = PlayScore(0);
+
+		const std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
+		if (!note) {
+			return score;
+		}
+
+		int noteTimeRows = nesState.getRow() - nesState.getRow(note->startSeconds);
+		const NoteTriggerData& triggerData = note->triggerData;
+		if (bool releaseDisabled = (nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM);
+			!note->playing || (releaseDisabled && noteTimeRows > 0)) {
+
+			// note released
+			score.set(PlayScore::Level::PLAYING, 1);
+		}
+		else {
+			// note playing
+			score.set(PlayScore::Level::PLAYING, 2);
+		}
+
+		// frequency limit of current note
+		score.set(PlayScore::Level::PLAYABLE_RANGE, Note::isInPlayableRange(triggerData.nesChannel, note->midiKey) ? 1 : 0);
+
+		// note start time
+		score.set(PlayScore::Level::NOTE_TIME, -noteTimeRows);
+
+		// note height | priority
+		if (triggerData.drumKeyOrder != Preset::DEFAULT_DRUM_KEY_ORDER) {
+			score.set(PlayScore::Level::NOTE_HEIGHT, -triggerData.drumKeyOrder);
+		}
+		else {
+			score.set(PlayScore::Level::NOTE_HEIGHT, LOWER_NOTES_FIRST ? -note->midiKey : note->midiKey);
+		}
+
+		// velocity
+		score.set(PlayScore::Level::VELOCITY, note->midiVelocity);
+
 		return score;
 	}
 
@@ -102,15 +128,17 @@ private:
 		}
 
 		NoteTriggerData bestTrigger = possibleTriggers[0];
-		PlayScore bestScore(0, -1);
+		PlayScore bestScore(-999999);
 		for (NoteTriggerData const& trigger : possibleTriggers) {
+			PlayScore currentScore = calculateCurrentPlayScore(nesState, trigger.nesChannel);
 			PlayScore score = calculatePlayScore(nesState, trigger, key, velocity);
+			score = score.substract(currentScore);
 			if (score.isBetterThan(bestScore, true)) {
 				bestTrigger = trigger;
 				bestScore = score;
 			}
 		}
-		if (bestScore.isBetterThan(PlayScore(0, 0), true)) {
+		if (bestScore.isBetterThan(PlayScore(0), true)) {
 			result.push_back(bestTrigger);
 		}
 	}

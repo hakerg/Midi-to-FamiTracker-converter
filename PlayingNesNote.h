@@ -7,6 +7,7 @@ class PlayingNesNote {
 public:
     int midiChannel;
     int midiKey;
+    int keyAfterPitch;
     int midiVelocity;
     int detuneIndex; // used to slightly detune notes with the same frequency as on different channels to avoid audio wave overlapping/cancelling
     double startSeconds;
@@ -15,7 +16,7 @@ public:
     bool playing = true;
 
     PlayingNesNote(int midiChannel, int midiKey, int midiVelocity, int detuneIndex, double startSeconds, NoteTriggerData const& triggerData, double canInterruptSeconds) :
-        midiChannel(midiChannel), midiKey(midiKey), midiVelocity(midiVelocity), detuneIndex(detuneIndex), startSeconds(startSeconds), triggerData(triggerData),
+        midiChannel(midiChannel), midiKey(midiKey), keyAfterPitch(midiKey), midiVelocity(midiVelocity), detuneIndex(detuneIndex), startSeconds(startSeconds), triggerData(triggerData),
         canInterruptSeconds(canInterruptSeconds) {}
     
     void stop() {
