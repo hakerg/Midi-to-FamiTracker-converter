@@ -8,8 +8,6 @@ public:
 	enum class Channel { PULSE, TRIANGLE, NOISE, DPCM, SAWTOOTH };
 	enum class Duty { ANY, PULSE_12, PULSE_25, PULSE_50, NOISE_NORMAL, NOISE_LOOP };
 
-	static constexpr int DEFAULT_DRUM_KEY_ORDER = 999999;
-
 	Channel channel;
 	std::shared_ptr<Instrument> instrument;
 	Duty duty;
@@ -18,7 +16,7 @@ public:
 	int uninterruptedTicks;
 
 	Preset(Channel channel, std::shared_ptr<Instrument> instrument, Duty duty = Duty::ANY) :
-		channel(channel), instrument(instrument), duty(duty), drumKeyOrder(DEFAULT_DRUM_KEY_ORDER), uninterruptedTicks(0) {}
+		channel(channel), instrument(instrument), duty(duty), drumKeyOrder(0), uninterruptedTicks(0) {}
 
 	Preset(Channel channel, std::shared_ptr<Instrument> instrument, Duty duty, int drumKeyOrder, std::optional<Note> note, int uninterruptedTicks = 0) :
 		channel(channel), instrument(instrument), duty(duty), drumKeyOrder(drumKeyOrder), note(note), uninterruptedTicks(uninterruptedTicks) {}

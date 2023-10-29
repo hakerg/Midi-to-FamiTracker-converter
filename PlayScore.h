@@ -3,10 +3,10 @@
 
 class PlayScore {
 private:
-    std::array<double, 6> scores{};
+    std::array<double, 9> scores{};
 
 public:
-    enum class Level { INTERRUPTS, PLAYING, PLAYABLE_RANGE, NOTE_TIME, NOTE_HEIGHT, VELOCITY };
+    enum class Level { INTERRUPTS, PLAYING, PLAYABLE_RANGE, NOTE_TIME, PRIORITY, NOTE_END_TIME, TONE_OVERLAP, NOTE_HEIGHT, VELOCITY };
 
     explicit PlayScore(double defaultScore) {
         scores[0] = defaultScore;

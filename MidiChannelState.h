@@ -18,8 +18,8 @@ public:
         return velocity * volume * expression;
     }
 
-    double getNotePitch() const {
-        return pitch * pitchRange + coarseTune + fineTune;
+    double getPitchedKey(int key) const {
+        return key + pitch * pitchRange + coarseTune + fineTune;
     }
 
     void stopAllNotes() {

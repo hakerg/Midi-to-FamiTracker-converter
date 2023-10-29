@@ -125,5 +125,11 @@
     <ClInclude Include="NesChannelSet.h">
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
+    <ClInclude Include="MidiEvent.h">
+      <Filter>Pliki nagłówkowe\Midi</Filter>
+    </ClInclude>
+    <ClInclude Include="MidiEventParser.h">
+      <Filter>Pliki nagłówkowe\Midi</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

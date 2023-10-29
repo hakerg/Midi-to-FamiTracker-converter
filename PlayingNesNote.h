@@ -2,22 +2,20 @@
 #include "commons.h"
 #include "Pattern.h"
 #include "NoteTriggerData.h"
+#include "MidiEvent.h"
+#include "PitchCalculator.h"
 
 class PlayingNesNote {
 public:
-    int midiChannel;
-    int midiKey;
+    MidiEvent event;
     int keyAfterPitch;
-    int midiVelocity;
-    int detuneIndex; // used to slightly detune notes with the same frequency as on different channels to avoid audio wave overlapping/cancelling
-    double startSeconds;
+    double frequencyAfterPitch;
     NoteTriggerData triggerData;
     double canInterruptSeconds;
     bool playing = true;
 
-    PlayingNesNote(int midiChannel, int midiKey, int midiVelocity, int detuneIndex, double startSeconds, NoteTriggerData const& triggerData, double canInterruptSeconds) :
-        midiChannel(midiChannel), midiKey(midiKey), keyAfterPitch(midiKey), midiVelocity(midiVelocity), detuneIndex(detuneIndex), startSeconds(startSeconds), triggerData(triggerData),
-        canInterruptSeconds(canInterruptSeconds) {}
+    PlayingNesNote(MidiEvent const& event, double startSeconds, NoteTriggerData const& triggerData, double canInterruptSeconds) :
+        event(event), keyAfterPitch(event.key), frequencyAfterPitch(PitchCalculator::calculateFrequencyByKey(event.key)), triggerData(triggerData), canInterruptSeconds(canInterruptSeconds) {}
     
     void stop() {
         playing = false;

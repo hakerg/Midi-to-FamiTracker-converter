@@ -154,6 +154,8 @@
     <ClInclude Include="Macro.h" />
     <ClInclude Include="MidiChannelState.h" />
     <ClInclude Include="InstrumentSelector.h" />
+    <ClInclude Include="MidiEvent.h" />
+    <ClInclude Include="MidiEventParser.h" />
     <ClInclude Include="MidiState.h" />
     <ClInclude Include="NesChannelSet.h" />
     <ClInclude Include="NesState.h" />

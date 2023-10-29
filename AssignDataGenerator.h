@@ -10,7 +10,7 @@ class AssignDataGenerator {
 private:
 	static constexpr double NOTES_BELOW_RANGE_PUNISHMENT = 2;
 	static constexpr double NOTE_INTERRUPTING_PUNISHMENT = 4;
-	static constexpr bool USE_VRC6 = false;
+	static constexpr bool USE_VRC6 = true;
 
 	static std::vector<int> getSortedIndices(std::array<double, 16> const& array) {
 		std::vector<int> indices(16);
@@ -234,25 +234,25 @@ public:
 	explicit AssignDataGenerator(MidiState const& midiState, double seconds, InstrumentBase* instrumentBase) :
 		originMidiState(midiState), originSeconds(seconds), instrumentBase(instrumentBase) {}
 
-	void addNote(int chan, int key, int velocity, MidiState& currentState) {
+	void addNote(MidiEvent const& event, MidiState& currentState) {
 		// drums are processed in InstrumentSelector::getNoteTriggers
-		if (currentState.getChannel(chan).useDrums) {
+		if (currentState.getChannel(event.chan).useDrums) {
 			return;
 		}
 
-		notes[chan]++;
+		notes[event.chan]++;
 		for (int i = 0; i < Pattern::CHANNELS; i++) {
-			if (!Note::isInPlayableRange(NesChannel(i), key)) {
-				notesOutOfRange[chan][i]++;
+			if (!Note::isInPlayableRange(NesChannel(i), event.key)) {
+				notesOutOfRange[event.chan][i]++;
 			}
 		}
 
 		// added small amount to fix i.e. the strings in DOOM - E1M2
-		volumeSum[chan] += currentState.getChannel(chan).getNoteVolume(velocity) + 0.01;
+		volumeSum[event.chan] += currentState.getChannel(event.chan).getNoteVolume(event.velocity) + 0.01;
 
-		avgVolumes[chan] = volumeSum[chan] / notes[chan];
-		auto noteCount = int(currentState.getChannel(chan).noteVelocities.size());
-		chords[chan][noteCount]++;
+		avgVolumes[event.chan] = volumeSum[event.chan] / notes[event.chan];
+		auto noteCount = int(currentState.getChannel(event.chan).noteVelocities.size());
+		chords[event.chan][noteCount]++;
 
 		for (int chan2 = 0; chan2 < 16; chan2++) {
 			if (currentState.getChannel(chan2).useDrums) {
@@ -260,12 +260,12 @@ public:
 			}
 
 			for (auto const& [key2, _] : currentState.getChannel(chan2).noteVelocities) {
-				if (chan == chan2 && key == key2) {
+				if (event.chan == chan2 && event.key == key2) {
 					continue;
 				}
 
-				if (chan != chan2) {
-					interruptingNotes[chan][chan2]++;
+				if (event.chan != chan2) {
+					interruptingNotes[event.chan][chan2]++; // TODO: add 1/30 seconds tolerancy
 				}
 			}
 		}

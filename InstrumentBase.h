@@ -12,7 +12,7 @@ private:
 	class Dpcm {
 	private:
 		void fillSampleByLoweringPitch(std::shared_ptr<Instrument> instrument, int key, int lowestKey, double scaleTuning) {
-			double targetKey = lowestKey + (key - lowestKey) * scaleTuning;
+			double targetKey = lowestKey + (double(key) - lowestKey) * scaleTuning;
 
 			int bestIndex = 0;
 			int bestPitch = 0;
@@ -25,7 +25,7 @@ private:
 				}
 				for (int pitch = 0; pitch <= sample.pitch; pitch++) {
 					double calculatedKey = PitchCalculator::calculatePitchedDmcKey(sample.note.key, pitch);
-					double score = (pitch - sample.pitch) * 0.25 - std::abs(targetKey - calculatedKey);
+					double score = (double(pitch) - sample.pitch) * 0.25 - std::abs(targetKey - calculatedKey);
 					if (score > bestScore) {
 						bestIndex = i;
 						bestPitch = pitch;
@@ -149,9 +149,9 @@ private:
 		auto openHatVolumeMacro = file.addVolumeMacro({ 15, 14, 12, 11, 10, 11, 12, 13, 13, 12, 11, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 });
 		auto clapVolumeMacro = file.addVolumeMacro({ 11, 7, 12, 8, 13, 8, 6, 4, 2, 0 });
 		auto analogOpenHatVolumeMacro = file.addVolumeMacro({ 12, 12, 12, 12, 12, 0 });
-		auto reverseCymbalValues = createDecayValues(1, 15, 1, 2);
+		auto reverseCymbalValues = createDecayValues(1, 10, 1, 2);
 		reverseCymbalValues.push_back(0);
-		auto reverseCymbalMacro = file.addVolumeMacro(reverseCymbalValues, -1, 29);
+		auto reverseCymbalMacro = file.addVolumeMacro(reverseCymbalValues, -1, 19);
 
 		auto snareArpeggioMacro = file.addArpeggioMacro({ -5, 2, 0 }, ArpeggioType::ABSOLUTE_);
 		auto openHatArpeggioMacro = file.addArpeggioMacro({ 2, 0, 2, 3, 4 }, ArpeggioType::ABSOLUTE_);

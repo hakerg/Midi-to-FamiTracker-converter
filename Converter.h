@@ -5,11 +5,12 @@
 #include "MidiState.h"
 #include "NesState.h"
 #include "PitchCalculator.h"
+#include "MidiEventParser.h"
 
 class Converter {
 private:
     static constexpr int ROWS_PER_PATTERN = 256;
-    static constexpr double MAX_DETUNE_SEMITONES = 0.2;
+    static constexpr double MAX_DETUNE_SEMITONES = 0.14;
 
     std::array<double, Pattern::CHANNELS> nesVolumeFactor = { 0.6, 0.6, 1.0, 0.8, 1.0, 0.6, 0.6, 0.6 };
 
@@ -27,8 +28,8 @@ private:
         return track->patterns[pattern];
     }
 
-    Cell* getPreviousCell(NesChannel channel) {
-        int row = nesState.getRow() - 1;
+    Cell* getPreviousCell(NesChannel channel, int rows) {
+        int row = nesState.getRow() - rows;
         return row < 0 ? nullptr : &(getPattern(row / ROWS_PER_PATTERN)->getCell(channel, row % ROWS_PER_PATTERN));
     }
 
@@ -37,9 +38,9 @@ private:
 		return getPattern(row / ROWS_PER_PATTERN)->getCell(channel, row % ROWS_PER_PATTERN);
     }
 
-    void stopNote(NesChannel nesChannel, Cell::Type stopType) {
+    void stopNote(NesChannel nesChannel, Cell::Type stopType, bool isDrum) {
         // release stops the drum samples, so it needs to be ignored
-        if (stopType == Cell::Type::RELEASE && (nesChannel == NesChannel::DPCM || nesChannel == NesChannel::NOISE)) {
+        if ((isDrum || nesChannel == NesChannel::DPCM) && stopType == Cell::Type::RELEASE) { // TODO: include it in instrument base
             return;
         }
 
@@ -59,8 +60,8 @@ private:
         for (int i = 0; i < Pattern::CHANNELS; i++) {
             auto nesChannel = NesChannel(i);
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
-            if (note && note->midiChannel == chan && note->midiKey == key) {
-                stopNote(nesChannel, stopType);
+            if (note && note->event.chan == chan && note->event.key == key) {
+                stopNote(nesChannel, stopType, midiState.getChannel(chan).useDrums);
             }
         }
     }
@@ -69,97 +70,99 @@ private:
         for (int i = 0; i < Pattern::CHANNELS; i++) {
             auto nesChannel = NesChannel(i);
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
-            if (note && note->midiChannel == chan) {
-                stopNote(nesChannel, stopType);
+            if (note && note->event.chan == chan) {
+                stopNote(nesChannel, stopType, midiState.getChannel(chan).useDrums);
             }
         }
     }
 
-    void midiNoteOn(int chan, int key, int velocity, bool pitchChangeNote, int keyAfterPitch) {
-        auto triggerData = instrumentSelector.getNoteTriggers(chan, key, velocity, midiState.getChannel(chan), nesState);
+    Note getNesNote(NesChannel nesChannel, int midiKey) {
+        // triangle needs to be played octave higher to sound better
+        return Note(nesChannel == NesChannel::TRIANGLE ? midiKey + 12 : midiKey, nesChannel != NesChannel::NOISE);
+    }
+
+    void midiNoteOn(MidiEvent const& event) {
+        auto triggerData = instrumentSelector.getNoteTriggers(event, midiState.getChannel(event.chan), nesState);
 
         for (auto& data : triggerData) {
-            // used to slightly detune notes with the same frequency as on different channels to avoid audio wave overlapping/cancelling
-            int detuneIndex = nesState.getDetuneIndex(data.nesChannel, key);
-            if (!pitchChangeNote) {
-                double canInterruptSeconds = nesState.seconds + data.uninterruptedTicks / 60.0;
-                nesState.setNote(data.nesChannel, PlayingNesNote(chan, key, velocity, detuneIndex, nesState.seconds, data, canInterruptSeconds));
-            }
-            else {
-                std::optional<PlayingNesNote>& note = nesState.getNote(data.nesChannel);
-                if (note) {
-                    note->keyAfterPitch = keyAfterPitch;
-                    note->detuneIndex = detuneIndex;
-                }
-            }
-
-            // triangle needs to be played octave higher to sound better
-            Note nesKey(data.nesChannel == NesChannel::TRIANGLE ? keyAfterPitch + 12 : keyAfterPitch, data.nesChannel != NesChannel::NOISE);
+            double canInterruptSeconds = nesState.seconds + data.uninterruptedTicks / 60.0;
+            nesState.setNote(data.nesChannel, PlayingNesNote(event, nesState.seconds, data, canInterruptSeconds));
 
             Cell& currentCell = getCurrentCell(data.nesChannel);
-            currentCell.Note(data.note ? data.note.value() : nesKey, data.instrument);
+            currentCell.Note(data.note ? data.note.value() : getNesNote(data.nesChannel, event.key), data.instrument);
 
-            setNesPitch(chan, data.nesChannel, key, detuneIndex, keyAfterPitch);
-
-            if (pitchChangeNote) {
-                continue;
-            }
-
-            setNesVolume(chan, data.nesChannel, velocity);
+            // optional was set above, so shouldn't be empty
+            setNesPitch(event.chan, data.nesChannel, nesState.getNote(data.nesChannel).value());
+            setNesVolume(event.chan, data.nesChannel, event.velocity);
 
             // set duty if requested
             if (std::optional<NesDuty> duty = data.getNesDuty(); duty) {
                 currentCell.Duty(duty.value());
             }
 
+            if (data.nesChannel == NesChannel::NOISE || data.nesChannel == NesChannel::DPCM) {
+                continue;
+            }
+
             // mute previous tick to clearly hear the note
-            if (data.nesChannel != NesChannel::NOISE && data.nesChannel != NesChannel::DPCM) {
-                Cell* previousCell = getPreviousCell(data.nesChannel);
-                if (previousCell && (previousCell->type == Cell::Type::EMPTY || previousCell->type == Cell::Type::RELEASE)) {
+            Cell* previousCell = getPreviousCell(data.nesChannel, 1);
+            if (previousCell && (previousCell->type == Cell::Type::EMPTY || previousCell->type == Cell::Type::RELEASE)) {
+                Cell* previousCell2 = getPreviousCell(data.nesChannel, 2);
+                if (previousCell2 && (previousCell2->type == Cell::Type::EMPTY || previousCell2->type == Cell::Type::RELEASE)) {
                     previousCell->volume = 0;
                 }
             }
         }
     }
 
-    void midiNote(int chan, int key, int velocity) {
-        if (velocity == 0) {
-            stopNote(chan, key, Cell::Type::RELEASE);
+    int getDetunedPeriod(NesChannel nesChannel, double key) const {
+        // detune unnecessary with these channels
+        if (nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM) {
+            return 0;
         }
-        else if (velocity == 255) {
-            stopNote(chan, key, Cell::Type::STOP);
+
+        auto basePeriod = int(round(PitchCalculator::calculatePeriodByKey(nesChannel, key)));
+        int delta = 0;
+        while (nesState.countChannelsWithSameFrequency(nesChannel, PitchCalculator::calculateFrequencyByPeriod(nesChannel, basePeriod + delta)) > 0) {
+            if (delta <= 0) {
+                delta = -delta + 1;
+            }
+            else {
+                delta = -delta;
+            }
         }
-        else {
-			midiNoteOn(chan, key, velocity, false, key);
+
+        int resultPeriod = basePeriod + delta;
+        // detune cannot be too high
+        double resultKey = PitchCalculator::calculateKeyByPeriod(nesChannel, resultPeriod);
+        if (std::abs(resultKey - key) > MAX_DETUNE_SEMITONES) {
+            return basePeriod;
         }
+
+        return resultPeriod;
     }
 
-	// keyAfterPitch is currently playing key due to pitch change, key is the original one from midi event
-    void setNesPitch(int midiChan, NesChannel nesChannel, int key, int detuneIndex, int keyAfterPitch) {
+    void setNesPitch(int midiChan, NesChannel nesChannel, PlayingNesNote& note) {
         // ignore for noise and DPCM
         if (nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM) {
             return;
         }
 
-        double targetKey = key + midiState.getChannel(midiChan).getNotePitch();
-        double targetPeriod = PitchCalculator::calculatePeriodByKey(nesChannel, targetKey) - detuneIndex;
+        double targetKey = midiState.getChannel(midiChan).getPitchedKey(note.event.key);
+        int targetPeriod = getDetunedPeriod(nesChannel, targetKey);
 
-        // detune cannot be too high
-        if (double resultKey = PitchCalculator::calculateKeyByPeriod(nesChannel, targetPeriod);
-            std::abs(resultKey - targetKey) > MAX_DETUNE_SEMITONES) {
-
-            setNesPitch(midiChan, nesChannel, key, 0, keyAfterPitch);
-            return;
-        }
-
-        double basePeriod = PitchCalculator::calculatePeriodByKey(nesChannel, keyAfterPitch);
+        double basePeriod = PitchCalculator::calculatePeriodByKey(nesChannel, note.keyAfterPitch);
         int finePitch = 128 + int(round(basePeriod - targetPeriod));
         if (finePitch >= 0 && finePitch <= 255) {
             getCurrentCell(nesChannel).FinePitch(finePitch);
+            note.frequencyAfterPitch = PitchCalculator::calculateFrequencyByPeriod(nesChannel, targetPeriod);
         }
-        else if (std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel); note && note->playing) {
+        else if (note.playing) {
 			// when pitch is out of range for FamiTracker, we need to create a new note
-            midiNoteOn(midiChan, key, note->midiVelocity, true, int(round(targetKey)));
+            auto key = int(round(targetKey));
+            getCurrentCell(nesChannel).Note(getNesNote(nesChannel, key), note.triggerData.instrument);
+            note.keyAfterPitch = key;
+            setNesPitch(midiChan, nesChannel, note);
         }
     }
 
@@ -167,8 +170,8 @@ private:
         for (int i = 0; i < Pattern::CHANNELS; i++) {
             auto nesChannel = NesChannel(i);
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
-            if (note && note->midiChannel == midiChan) {
-                setNesPitch(midiChan, nesChannel, note->midiKey, note->detuneIndex, note->keyAfterPitch);
+            if (note && note->event.chan == midiChan) {
+                setNesPitch(midiChan, nesChannel, note.value());
             }
         }
     }
@@ -187,8 +190,8 @@ private:
         for (int i = 0; i < Pattern::CHANNELS; i++) {
             auto nesChannel = NesChannel(i);
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
-            if (note && note->midiChannel == midiChan) {
-                setNesVolume(midiChan, nesChannel, note->midiVelocity);
+            if (note && note->event.chan == midiChan) {
+                setNesVolume(midiChan, nesChannel, note->event.velocity);
             }
         }
     }
@@ -205,14 +208,20 @@ private:
         }
     }
 
-    void processEvents(HSTREAM handle, std::vector<BASS_MIDI_EVENT>& events) {
+    void processEvents(HSTREAM handle, std::vector<MidiEvent>& events) {
         for (auto const& event : events) {
-            nesState.seconds = BASS_ChannelBytes2Seconds(handle, event.pos);
+            nesState.seconds = event.seconds;
             midiState.processEvent(event);
 
             switch (event.event) {
-            case MIDI_EVENT_NOTE:
-                midiNote(event.chan, MidiState::getKey(event), MidiState::getVelocity(event));
+            case MIDI_EVENT_NOTE_ON:
+                midiNoteOn(event);
+                break;
+            case MIDI_EVENT_NOTE_OFF:
+                stopNote(event.chan, event.key, Cell::Type::RELEASE);
+                break;
+            case MIDI_EVENT_NOTE_STOP:
+                stopNote(event.chan, event.key, Cell::Type::STOP);
                 break;
             case MIDI_EVENT_PITCH:
             case MIDI_EVENT_PITCHRANGE:
@@ -246,20 +255,6 @@ private:
         }
     }
 
-    static std::vector<BASS_MIDI_EVENT> getEvents(HSTREAM handle) {
-        DWORD eventCount = BASS_MIDI_StreamGetEvents(handle, -1, 0, nullptr);
-        std::vector<BASS_MIDI_EVENT> events(eventCount);
-        BASS_MIDI_StreamGetEvents(handle, -1, 0, events.data());
-        return events;
-    }
-
-    static std::vector<BASS_MIDI_MARK> getMarks(HSTREAM handle) {
-        DWORD markCount = BASS_MIDI_StreamGetMarks(handle, -1, BASS_MIDI_MARK_MARKER, nullptr);
-        std::vector<BASS_MIDI_MARK> marks(markCount);
-        BASS_MIDI_StreamGetMarks(handle, -1, BASS_MIDI_MARK_MARKER, marks.data());
-        return marks;
-    }
-
     int getSpeedDivider(double songTimeSeconds) const {
         int maxRows = ROWS_PER_PATTERN * 0x80;
         int divider = 1;
@@ -272,8 +267,8 @@ private:
 
 public:
     FamiTrackerFile convert(HSTREAM handle) {
-        std::vector<BASS_MIDI_EVENT> events = getEvents(handle);
-        int speedDivider = getSpeedDivider(events.empty() ? 0 : BASS_ChannelBytes2Seconds(handle, events.back().pos));
+        std::vector<MidiEvent> events = MidiEventParser::getEvents(handle);
+        int speedDivider = getSpeedDivider(events.empty() ? 0 : events.back().seconds);
 		nesState.rowsPerSecond /= speedDivider;
 
         std::cout << "Scrolling speed: " << nesState.rowsPerSecond << " rows per second" << std::endl;

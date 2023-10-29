@@ -29,65 +29,42 @@ public:
     }
 
     int getRow() const {
-        return getRow(seconds);
+        return int(round(seconds * rowsPerSecond));
     }
 
-    int getRow(double seconds_) const {
-        return int(round(seconds_ * rowsPerSecond));
-    }
-
-    int countOverlapAudio(NesChannel ignoreChannel, int key) const {
-        if (ignoreChannel == NesChannel::NOISE || ignoreChannel == NesChannel::DPCM) {
+    int countChannelsWithSameKey(NesChannel ignoreNesChannel, MidiEvent const& event, double minNoteTimeLeft) const {
+        if (ignoreNesChannel == NesChannel::NOISE || ignoreNesChannel == NesChannel::DPCM || event.noteEndSeconds - seconds < minNoteTimeLeft) {
             return 0;
         }
         int count = 0;
         for (int i = 0; i < Pattern::CHANNELS; i++) {
             auto nesChannel = NesChannel(i);
-            if (nesChannel == ignoreChannel || nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM) {
+            if (nesChannel == ignoreNesChannel || nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM) {
                 continue;
             }
             const std::optional<PlayingNesNote>& note = getNote(nesChannel);
-            if (note && note->playing && note->midiKey == key) {
+            if (note && note->playing && event.key == note->event.key && note->event.noteEndSeconds - seconds >= minNoteTimeLeft) {
                 count++;
             }
         }
         return count;
     }
 
-    int countOverlapAudio(NesChannel ignoreChannel, int key, int detuneIndex) const {
-        if (ignoreChannel == NesChannel::NOISE || ignoreChannel == NesChannel::DPCM) {
+    int countChannelsWithSameFrequency(NesChannel ignoreNesChannel, double frequency) const {
+        if (ignoreNesChannel == NesChannel::NOISE || ignoreNesChannel == NesChannel::DPCM) {
             return 0;
         }
         int count = 0;
         for (int i = 0; i < Pattern::CHANNELS; i++) {
             auto nesChannel = NesChannel(i);
-            if (nesChannel == ignoreChannel || nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM) {
+            if (nesChannel == ignoreNesChannel || nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM) {
                 continue;
             }
             const std::optional<PlayingNesNote>& note = getNote(nesChannel);
-            if (note && note->playing && detuneIndex == note->detuneIndex && note->midiKey == key) {
+            if (note && note->playing && std::abs(frequency - note->frequencyAfterPitch) < 1) {
                 count++;
             }
         }
         return count;
-    }
-
-    int getDetuneIndex(NesChannel ignoreChannel, int key) const {
-        // detune unnecessary with these channels
-        if (ignoreChannel == NesChannel::NOISE || ignoreChannel == NesChannel::DPCM) {
-            return 0;
-        }
-
-        // this is the period delta
-        int index = 0;
-        while (countOverlapAudio(ignoreChannel, key, index) > 0) {
-            if (index <= 0) {
-                index = -index + 1;
-            }
-            else {
-                index = -index;
-            }
-        }
-        return index;
     }
 };

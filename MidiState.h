@@ -1,16 +1,16 @@
 #pragma once
 #include "commons.h"
 #include "MidiChannelState.h"
+#include "MidiEvent.h"
 
 class MidiState {
 private:
-    void midiNote(int chan, int key, int velocity) {
-        if (velocity == 0 || velocity == 255) {
-            getChannel(chan).noteVelocities.erase(key);
-        }
-        else {
-            getChannel(chan).noteVelocities.insert(std::pair<int, int>(key, velocity));
-        }
+    void noteOn(int chan, int key, int velocity) {
+        getChannel(chan).noteVelocities.insert(std::pair<int, int>(key, velocity));
+    }
+
+    void noteOff(int chan, int key) {
+        getChannel(chan).noteVelocities.erase(key);
     }
 
     void setProgram(int chan, int preset) {
@@ -86,10 +86,14 @@ public:
 		return channels[channel];
 	}
 
-	void processEvent(const BASS_MIDI_EVENT& event) {
+	void processEvent(const MidiEvent& event) {
         switch (event.event) {
-        case MIDI_EVENT_NOTE:
-            midiNote(event.chan, LOBYTE(event.param), HIBYTE(event.param));
+        case MIDI_EVENT_NOTE_ON:
+            noteOn(event.chan, event.key, event.velocity);
+            break;
+        case MIDI_EVENT_NOTE_OFF:
+        case MIDI_EVENT_NOTE_STOP:
+            noteOff(event.chan, event.key);
             break;
         case MIDI_EVENT_PROGRAM:
             setProgram(event.chan, event.param);
@@ -138,14 +142,6 @@ public:
             break;
         }
 	}
-
-    static int getKey(const BASS_MIDI_EVENT& noteEvent) {
-        return LOBYTE(noteEvent.param);
-    }
-
-    static int getVelocity(const BASS_MIDI_EVENT& noteEvent) {
-        return HIBYTE(noteEvent.param);
-    }
 
     static double calculateBPM(int microsPerQuarter) {
         return 60000000.0 / microsPerQuarter;
