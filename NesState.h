@@ -29,7 +29,15 @@ public:
     }
 
     int getRow() const {
-        return int(round(seconds * rowsPerSecond));
+        return getRow(seconds);
+    }
+
+    int getRow(double seconds_) const {
+        return int(round(seconds_ * rowsPerSecond));
+    }
+
+    double getSeconds(int row) const {
+        return row / rowsPerSecond;
     }
 
     int countChannelsWithSameKey(NesChannel ignoreNesChannel, MidiEvent const& event, double minNoteTimeLeft) const {

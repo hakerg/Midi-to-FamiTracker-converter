@@ -27,6 +27,10 @@ public:
 
         std::vector<MidiEvent> results;
         for (auto& bassEvent : bassEvents) {
+            if (bassEvent.chan >= 16) {
+                continue;
+            }
+
             MidiEvent event(handle, bassEvent);
 
             if (event.event == MIDI_EVENT_NOTE_ON) {

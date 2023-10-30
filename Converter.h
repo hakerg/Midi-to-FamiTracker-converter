@@ -10,7 +10,8 @@
 class Converter {
 private:
     static constexpr int ROWS_PER_PATTERN = 256;
-    static constexpr double MAX_DETUNE_SEMITONES = 0.14;
+    static constexpr double MAX_DETUNE_SEMITONES = 0.12;
+    static constexpr bool ADJUST_SPEED = true;
 
     std::array<double, Pattern::CHANNELS> nesVolumeFactor = { 0.6, 0.6, 1.0, 0.8, 1.0, 0.6, 0.6, 0.6 };
 
@@ -272,13 +273,82 @@ private:
         return divider;
     }
 
+    double getAdjustedTempoScore(std::vector<MidiEvent> const& events, double speed, double secondsLimit) {
+        double score = 0;
+        for (auto& event : events) {
+            if (event.event != MIDI_EVENT_NOTE_ON) {
+                continue;
+            }
+            if (event.seconds > secondsLimit) {
+                break;
+            }
+
+            double seconds = event.seconds * speed;
+            int row = nesState.getRow(seconds);
+            double resultSeconds = nesState.getSeconds(row);
+            score += max(0, 1 - std::abs(seconds - resultSeconds) * 30);
+        }
+
+        return score * max(0, 1 - std::abs(1 - speed) * 4);
+    }
+
+    double findBestAdjustedSpeed(std::vector<MidiEvent> const& events, double songLength) {
+        double bestSpeed = 1;
+
+        double secondsLimit = 10;
+
+        double speedMin = 0.8;
+        double speedMax = 1.2;
+        double speedStep = 1 / 10000.0;
+
+        while (true) {
+            double bestScore = -1;
+            double speed = speedMin;
+            while (speed <= speedMax) {
+                if (double score = getAdjustedTempoScore(events, speed, secondsLimit); score > bestScore) {
+                    bestScore = score;
+                    bestSpeed = speed;
+                }
+
+                speed += speedStep;
+            }
+
+            if (secondsLimit >= songLength) {
+                break;
+            }
+            secondsLimit *= 2;
+            speedStep *= 0.5;
+            speedMin = bestSpeed - 16 * speedStep;
+            speedMax = bestSpeed + 16 * speedStep;
+        }
+
+        return bestSpeed;
+    }
+
+    void adjustTempo(std::vector<MidiEvent>& events, double songLength) {
+        double speed = findBestAdjustedSpeed(events, songLength);
+
+        std::cout << "Speed multiplier: " << speed << std::endl;
+
+        for (auto& event : events) {
+            event.seconds *= speed;
+            event.noteEndSeconds *= speed;
+        }
+    }
+
 public:
     FamiTrackerFile convert(HSTREAM handle) {
         std::vector<MidiEvent> events = MidiEventParser::getEvents(handle);
-        int speedDivider = getSpeedDivider(events.empty() ? 0 : events.back().seconds);
+        double songLength = (events.empty() ? 0 : events.back().seconds);
+        int speedDivider = getSpeedDivider(songLength);
 		nesState.rowsPerSecond /= speedDivider;
 
         std::cout << "Scrolling speed: " << nesState.rowsPerSecond << " rows per second" << std::endl;
+
+        // slightly adjusts playing speed to make distances between notes even
+        if (ADJUST_SPEED) {
+            adjustTempo(events, songLength);
+        }
 
         instrumentSelector.preprocess(handle, events, file);
 
