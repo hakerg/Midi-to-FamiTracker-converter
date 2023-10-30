@@ -5,11 +5,11 @@
 
 class AssignData {
 public:
-	double seconds;
+	int eventIndex;
 	std::array<AssignChannelData, 16> nesData;
 	std::optional<double> score;
 
-	explicit AssignData(double seconds) : seconds(seconds) {}
+	explicit AssignData(int eventIndex) : eventIndex(eventIndex) {}
 
 	const AssignChannelData& getNesData(int midiChannel) const {
 		return nesData[midiChannel];

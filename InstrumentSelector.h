@@ -21,8 +21,8 @@ private:
 	void fillChannelAssignData(HSTREAM handle, std::vector<MidiEvent> const& events) {
 		MidiState state;
 		AssignDataGenerator assignGenerator(state, 0, &base);
-		std::optional<AssignData> previousData;
-		for (auto const& event : events) {
+		for (int i = 0; i < events.size(); i++) {
+			const MidiEvent& event = events[i];
 			state.processEvent(event);
 
 			if (event.event == MIDI_EVENT_NOTE_ON) {
@@ -30,21 +30,20 @@ private:
 			}
 			else if (event.event == MIDI_EVENT_PROGRAM || event.event == MIDI_EVENT_DRUMS) {
 				if (assignGenerator.notes[event.chan] > 0) {
-					previousData = assignGenerator.generateAssignData(previousData);
-					channelAssignData.push_back(previousData.value());
-					assignGenerator = AssignDataGenerator(state, event.seconds, &base);
+					channelAssignData.push_back(assignGenerator.generateAssignData());
+					assignGenerator = AssignDataGenerator(state, i, &base);
 				}
 				else {
 					assignGenerator.originMidiState = state;
 				}
 			}
 		}
-		channelAssignData.push_back(assignGenerator.generateAssignData(previousData));
+		channelAssignData.push_back(assignGenerator.generateAssignData());
 	}
 
-	AssignData& getAssign(double seconds) {
+	AssignData& getAssign(int eventIndex) {
 		for (int i = 1; i < channelAssignData.size(); i++) {
-			if (channelAssignData[i].seconds > seconds) {
+			if (channelAssignData[i].eventIndex > eventIndex) {
 				return channelAssignData[size_t(i) - 1];
 			}
 		}
@@ -124,7 +123,7 @@ public:
 		fillChannelAssignData(handle, events);
 	}
 
-	std::vector<NoteTriggerData> getNoteTriggers(MidiEvent const& event, MidiChannelState const& midiState, NesState const& nesState) {
+	std::vector<NoteTriggerData> getNoteTriggers(MidiEvent const& event, int eventIndex, MidiChannelState const& midiState, NesState const& nesState) {
 		std::vector<NoteTriggerData> result;
 
 		// drums can have multiple triggers (i.e. noise and dpcm for the same note)
@@ -139,7 +138,7 @@ public:
 			}
 		}
 		else {
-			const AssignChannelData& nesData = getAssign(nesState.seconds).getNesData(event.chan);
+			const AssignChannelData& nesData = getAssign(eventIndex).getNesData(event.chan);
 			std::optional<Preset> preset = base.getGmPreset(midiState.program);
 			if (preset) {
 				addTriggerIfPossible(result, nesData.getTriggers(preset.value()), event, nesState);

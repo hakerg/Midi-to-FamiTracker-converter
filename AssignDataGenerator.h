@@ -210,7 +210,7 @@ private:
 
 public:
 	MidiState originMidiState;
-	double originSeconds;
+	int eventIndex;
 	InstrumentBase* instrumentBase;
 
 	// how many notes appeared for every channel
@@ -231,8 +231,8 @@ public:
 	// [interrupting chan][interruped chan]
 	std::array<std::array<int, 16>, 16> interruptingNotes{};
 
-	explicit AssignDataGenerator(MidiState const& midiState, double seconds, InstrumentBase* instrumentBase) :
-		originMidiState(midiState), originSeconds(seconds), instrumentBase(instrumentBase) {}
+	explicit AssignDataGenerator(MidiState const& midiState, int eventIndex, InstrumentBase* instrumentBase) :
+		originMidiState(midiState), eventIndex(eventIndex), instrumentBase(instrumentBase) {}
 
 	void addNote(MidiEvent const& event, MidiState& currentState) {
 		// drums are processed in InstrumentSelector::getNoteTriggers
@@ -271,13 +271,11 @@ public:
 		}
 	}
 
-	AssignData generateAssignData(std::optional<AssignData> const& previousData) const {
+	AssignData generateAssignData() const {
 		std::unordered_set<AssignData> processed;
 		std::vector<int> channelOrder = getSortedIndices(volumeSum);
 
-		AssignData bestData = previousData.value_or(AssignData(originSeconds));
-		bestData.seconds = originSeconds;
-		bestData.score.reset();
+		AssignData bestData(eventIndex);
 		bool iterate = true;
 		while (iterate) {
 			iterate = false;

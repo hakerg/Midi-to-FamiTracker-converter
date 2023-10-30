@@ -81,8 +81,8 @@ private:
         return Note(nesChannel == NesChannel::TRIANGLE ? midiKey + 12 : midiKey, nesChannel != NesChannel::NOISE);
     }
 
-    void midiNoteOn(MidiEvent const& event) {
-        auto triggerData = instrumentSelector.getNoteTriggers(event, midiState.getChannel(event.chan), nesState);
+    void midiNoteOn(MidiEvent const& event, int eventIndex) {
+        auto triggerData = instrumentSelector.getNoteTriggers(event, eventIndex, midiState.getChannel(event.chan), nesState);
 
         for (auto& data : triggerData) {
             double canInterruptSeconds = nesState.seconds + data.uninterruptedTicks / 60.0;
@@ -160,6 +160,12 @@ private:
         else if (note.playing) {
 			// when pitch is out of range for FamiTracker, we need to create a new note
             auto key = int(round(targetKey));
+
+            // fixes stack overflow
+            if (key == note.keyAfterPitch) {
+                return;
+            }
+
             getCurrentCell(nesChannel).Note(getNesNote(nesChannel, key), note.triggerData.instrument);
             note.keyAfterPitch = key;
             setNesPitch(midiChan, nesChannel, note);
@@ -208,14 +214,15 @@ private:
         }
     }
 
-    void processEvents(HSTREAM handle, std::vector<MidiEvent>& events) {
-        for (auto const& event : events) {
+    void processEvents(HSTREAM handle, std::vector<MidiEvent> const& events) {
+        for (int i = 0; i < events.size(); i++) {
+			MidiEvent const& event = events[i];
             nesState.seconds = event.seconds;
             midiState.processEvent(event);
 
             switch (event.event) {
             case MIDI_EVENT_NOTE_ON:
-                midiNoteOn(event);
+                midiNoteOn(event, i);
                 break;
             case MIDI_EVENT_NOTE_OFF:
                 stopNote(event.chan, event.key, Cell::Type::RELEASE);
@@ -281,6 +288,8 @@ public:
         track->tempo = 150;
 
         resetMidi();
+
+        std::cout << "Channels assigned, processing events..." << std::endl;
 
         processEvents(handle, events);
 
