@@ -9,12 +9,14 @@ public:
 	NesChannel nesChannel;
 	Preset::Duty duty;
 	std::shared_ptr<Instrument> instrument;
+	bool needRelease;
 	int drumKeyOrder;
 	std::optional<Note> note;
 	int uninterruptedTicks;
 
 	NoteTriggerData(NesChannel nesChannel, Preset::Duty duty, Preset const& preset) :
-		nesChannel(nesChannel), duty(duty), instrument(preset.instrument), drumKeyOrder(preset.drumKeyOrder), note(preset.note), uninterruptedTicks(preset.uninterruptedTicks) {}
+		nesChannel(nesChannel), duty(duty), instrument(preset.instrument), needRelease(preset.needRelease), drumKeyOrder(preset.drumKeyOrder), note(preset.note),
+		uninterruptedTicks(preset.uninterruptedTicks) {}
 
 	std::optional<NesDuty> getNesDuty() const {
 		switch (duty) {

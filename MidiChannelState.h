@@ -27,6 +27,6 @@ public:
     }
 
     bool isPlaying(int key) const {
-        return noteVelocities.find(key) != noteVelocities.end();
+        return noteVelocities.contains(key);
     }
 };

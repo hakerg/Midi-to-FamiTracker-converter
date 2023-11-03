@@ -30,7 +30,3 @@ std::wstring hex2(int number) {
 	stream << std::uppercase << std::hex << std::setfill(L'0') << std::setw(2) << number;
 	return stream.str();
 }
-
-template <class T, class Pr> void removeIf(std::vector<T>& v, Pr predicate) {
-	v.erase(std::remove_if(v.begin(), v.end(), predicate), v.end());
-}

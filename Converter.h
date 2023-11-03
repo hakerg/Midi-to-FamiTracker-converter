@@ -39,16 +39,11 @@ private:
 		return getPattern(row / ROWS_PER_PATTERN)->getCell(channel, row % ROWS_PER_PATTERN);
     }
 
-    void stopNote(NesChannel nesChannel, Cell::Type stopType, bool isDrum) {
-        // release stops the drum samples, so it needs to be ignored
-        if ((isDrum || nesChannel == NesChannel::DPCM) && stopType == Cell::Type::RELEASE) { // TODO: include it in instrument base
-            return;
-        }
-
+    void stopNote(NesChannel nesChannel, Cell::Type stopType) {
 		// ignore if already stopped
         if (stopType == Cell::Type::RELEASE) {
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
-            if (!note || !note->playing) {
+            if (!note || !note->playing || !note->triggerData.needRelease) { // the last condition causes that note has playing=true after release, but that's fine
                 return;
             }
         }
@@ -62,7 +57,7 @@ private:
             auto nesChannel = NesChannel(i);
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
             if (note && note->event.chan == chan && note->event.key == key) {
-                stopNote(nesChannel, stopType, midiState.getChannel(chan).useDrums);
+                stopNote(nesChannel, stopType);
             }
         }
     }
@@ -72,7 +67,7 @@ private:
             auto nesChannel = NesChannel(i);
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
             if (note && note->event.chan == chan) {
-                stopNote(nesChannel, stopType, midiState.getChannel(chan).useDrums);
+                stopNote(nesChannel, stopType);
             }
         }
     }
@@ -124,7 +119,7 @@ private:
 
         auto basePeriod = int(round(PitchCalculator::calculatePeriodByKey(nesChannel, key)));
         int delta = 0;
-        while (nesState.countChannelsWithSameFrequency(nesChannel, PitchCalculator::calculateFrequencyByPeriod(nesChannel, basePeriod + delta)) > 0) {
+        while (nesState.countChannelsWithSameFrequency(nesChannel, PitchCalculator::calculateFrequencyByPeriod(nesChannel, double(basePeriod) + delta)) > 0) {
             if (delta <= 0) {
                 delta = -delta + 1;
             }
@@ -158,18 +153,24 @@ private:
             getCurrentCell(nesChannel).FinePitch(finePitch);
             note.frequencyAfterPitch = PitchCalculator::calculateFrequencyByPeriod(nesChannel, targetPeriod);
         }
-        else if (note.playing) {
-			// when pitch is out of range for FamiTracker, we need to create a new note
-            auto key = int(round(targetKey));
+        else { // pitch is out of range for FamiTracker
+            // we need to create a new note, but Preset should have needRelease=true to make it less noticeable
+            // otherwise just stop the note because we can't play it :(
+            if (note.playing && note.triggerData.needRelease) {
+                auto key = int(round(targetKey));
 
-            // fixes stack overflow
-            if (key == note.keyAfterPitch) {
-                return;
+                // fixes stack overflow
+                if (key == note.keyAfterPitch) {
+                    return;
+                }
+
+                getCurrentCell(nesChannel).Note(getNesNote(nesChannel, key), note.triggerData.instrument);
+                note.keyAfterPitch = key;
+                setNesPitch(midiChan, nesChannel, note);
             }
-
-            getCurrentCell(nesChannel).Note(getNesNote(nesChannel, key), note.triggerData.instrument);
-            note.keyAfterPitch = key;
-            setNesPitch(midiChan, nesChannel, note);
+            else {
+                stopNote(nesChannel, Cell::Type::STOP);
+            }
         }
     }
 
@@ -267,7 +268,7 @@ private:
         int maxRows = ROWS_PER_PATTERN * 0x80;
         int divider = 1;
         // 1 less for rounding error, let's be sure that halt event can be placed at the end of the song
-        while (songTimeSeconds * nesState.rowsPerSecond / divider >= maxRows - 1) {
+        while (songTimeSeconds * nesState.rowsPerSecond / divider >= maxRows - 1.0) {
             divider++;
         }
         return divider;

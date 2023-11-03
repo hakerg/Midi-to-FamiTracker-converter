@@ -21,24 +21,26 @@ private:
 
 	int getIndex() const {
 		switch (channel) {
-		case Preset::Channel::PULSE:
+		using enum Preset::Duty;
+		using enum Preset::Channel;
+		case PULSE:
 			switch (duty) {
-			case Preset::Duty::PULSE_12:
+			case PULSE_12:
 				return 0;
-			case Preset::Duty::PULSE_25:
+			case PULSE_25:
 				return 1;
-			case Preset::Duty::PULSE_50:
+			case PULSE_50:
 				return 2;
 			default:
 				return -1;
 			}
-		case Preset::Channel::TRIANGLE:
+		case TRIANGLE:
 			return 3;
-		case Preset::Channel::NOISE:
-			return duty == Preset::Duty::NOISE_NORMAL ? 4 : 5;
-		case Preset::Channel::DPCM:
+		case NOISE:
+			return duty == NOISE_NORMAL ? 4 : 5;
+		case DPCM:
 			return 6;
-		case Preset::Channel::SAWTOOTH:
+		case SAWTOOTH:
 			return 7;
 		default:
 			return -1;
@@ -55,7 +57,7 @@ public:
 		int indexA = getIndex();
 		int indexB = other.getIndex();
 		if (indexA == -1 || indexB == -1) {
-			return channel == other.channel && duty == other.duty ? 1 : 0;
+			return channel == other.channel && duty == other.duty ? 1 : 0; // it allows to have duty ANY
 		}
 		return similarityMatrix[indexA][indexB];
 	}

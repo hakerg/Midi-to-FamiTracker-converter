@@ -16,7 +16,7 @@ private:
 	static constexpr double MIN_NOTE_SECONDS = 1 / 30.0;
 
 	InstrumentBase base;
-	std::vector<AssignData> channelAssignData;
+	std::vector<AssignData> channelAssignData{};
 
 	void fillChannelAssignData(HSTREAM handle, std::vector<MidiEvent> const& events) {
 		MidiState state;
@@ -51,28 +51,30 @@ private:
 	}
 
 	PlayScore calculatePlayScore(NesState const& nesState, NoteTriggerData const& checkedTrigger, MidiEvent const& event) const {
+		using enum PlayScore::Level;
 		auto score = PlayScore(0);
 
 		// don't interrupt current note with higher priorityOrder sound (e.g. crash with hi-hat)
 		if (const std::optional<PlayingNesNote>& note = nesState.getNote(checkedTrigger.nesChannel);
 			note && event.seconds < note->canInterruptSeconds && checkedTrigger.drumKeyOrder > note->triggerData.drumKeyOrder) {
 
-			score.set(PlayScore::Level::INTERRUPTS, -1);
+			score.set(INTERRUPTS, -1);
 		}
 
-		score.set(PlayScore::Level::PLAYING, 2);
-		score.set(PlayScore::Level::PLAYABLE_RANGE, Note::isInPlayableRange(checkedTrigger.nesChannel, event.key) ? 1 : 0);
-		score.set(PlayScore::Level::NOTE_TIME, 0);
-		score.set(PlayScore::Level::PRIORITY, -checkedTrigger.drumKeyOrder);
-		score.set(PlayScore::Level::NOTE_END_TIME, min(MIN_NOTE_SECONDS, event.noteEndSeconds - event.seconds));
-		score.set(PlayScore::Level::TONE_OVERLAP, -nesState.countChannelsWithSameKey(checkedTrigger.nesChannel, event, MIN_NOTE_SECONDS));
-		score.set(PlayScore::Level::NOTE_HEIGHT, LOWER_NOTES_FIRST ? -event.key : event.key);
-		score.set(PlayScore::Level::VELOCITY, event.velocity);
+		score.set(PLAYING, 2);
+		score.set(PLAYABLE_RANGE, Note::isInPlayableRange(checkedTrigger.nesChannel, event.key) ? 1 : 0);
+		score.set(NOTE_TIME, 0);
+		score.set(PRIORITY, -checkedTrigger.drumKeyOrder);
+		score.set(NOTE_END_TIME, min(MIN_NOTE_SECONDS, event.noteEndSeconds - event.seconds));
+		score.set(TONE_OVERLAP, -nesState.countChannelsWithSameKeyAndLength(checkedTrigger.nesChannel, event, MIN_NOTE_SECONDS));
+		score.set(NOTE_HEIGHT, LOWER_NOTES_FIRST ? -event.key : event.key);
+		score.set(VELOCITY, event.velocity);
 
 		return score;
 	}
 
 	PlayScore calculateCurrentPlayScore(NesState const& nesState, NesChannel nesChannel) {
+		using enum PlayScore::Level;
 		auto score = PlayScore(0);
 
 		const std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
@@ -83,15 +85,15 @@ private:
 
 		const NoteTriggerData& triggerData = note->triggerData;
 
-		score.set(PlayScore::Level::INTERRUPTS, 0);
-		score.set(PlayScore::Level::PLAYING, note->playing ? 2 : 1);
-		score.set(PlayScore::Level::PLAYABLE_RANGE, Note::isInPlayableRange(triggerData.nesChannel, note->event.key) ? 1 : 0);
-		score.set(PlayScore::Level::NOTE_TIME, -max(0, nesState.seconds - note->event.seconds - MIN_NOTE_SECONDS));
-		score.set(PlayScore::Level::PRIORITY, -triggerData.drumKeyOrder);
-		score.set(PlayScore::Level::NOTE_END_TIME, min(MIN_NOTE_SECONDS, note->event.noteEndSeconds - nesState.seconds));
-		score.set(PlayScore::Level::TONE_OVERLAP, -nesState.countChannelsWithSameKey(nesChannel, note->event, MIN_NOTE_SECONDS));
-		score.set(PlayScore::Level::NOTE_HEIGHT, LOWER_NOTES_FIRST ? -note->event.key : note->event.key);
-		score.set(PlayScore::Level::VELOCITY, note->event.velocity);
+		score.set(INTERRUPTS, 0);
+		score.set(PLAYING, note->playing ? 2 : 1);
+		score.set(PLAYABLE_RANGE, Note::isInPlayableRange(triggerData.nesChannel, note->event.key) ? 1 : 0);
+		score.set(NOTE_TIME, -max(0, nesState.seconds - note->event.seconds - MIN_NOTE_SECONDS));
+		score.set(PRIORITY, -triggerData.drumKeyOrder);
+		score.set(NOTE_END_TIME, min(MIN_NOTE_SECONDS, note->event.noteEndSeconds - nesState.seconds));
+		score.set(TONE_OVERLAP, -nesState.countChannelsWithSameKeyAndLength(nesChannel, note->event, MIN_NOTE_SECONDS));
+		score.set(NOTE_HEIGHT, LOWER_NOTES_FIRST ? -note->event.key : note->event.key);
+		score.set(VELOCITY, note->event.velocity);
 
 		return score;
 	}

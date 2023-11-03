@@ -25,7 +25,7 @@ public:
 
 	std::wstring toNoteString() const {
 		static const std::array<std::wstring, 12> tones = { L"C-", L"C#", L"D-", L"D#", L"E-", L"F-", L"F#", L"G-", L"G#", L"A-", L"A#", L"B-" };
-		return tones[getExportTone()] + std::to_wstring(getExportOctave());
+		return std::format(L"{}{}", tones[getExportTone()], getExportOctave());
 	}
 
 	std::wstring toHexString() const {

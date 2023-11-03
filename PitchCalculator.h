@@ -10,14 +10,15 @@ public:
 
 	static double calculateFrequencyByPeriod(NesChannel channel, double period) {
 		switch (channel) {
-		case NesChannel::PULSE1:
-		case NesChannel::PULSE2:
-		case NesChannel::PULSE3:
-		case NesChannel::PULSE4:
+		using enum NesChannel;
+		case PULSE1:
+		case PULSE2:
+		case PULSE3:
+		case PULSE4:
 			return NTSC_CPU_FREQUENCY / (16 * (period + 1));
-		case NesChannel::TRIANGLE:
+		case TRIANGLE:
 			return NTSC_CPU_FREQUENCY / (32 * (period + 1));
-		case NesChannel::SAWTOOTH:
+		case SAWTOOTH:
 			return NTSC_CPU_FREQUENCY / (14 * (period + 1));
 		default:
 			return -1;
@@ -26,14 +27,15 @@ public:
 
 	static double calculatePeriodByFrequency(NesChannel channel, double frequency) {
 		switch (channel) {
-		case NesChannel::PULSE1:
-		case NesChannel::PULSE2:
-		case NesChannel::PULSE3:
-		case NesChannel::PULSE4:
+		using enum NesChannel;
+		case PULSE1:
+		case PULSE2:
+		case PULSE3:
+		case PULSE4:
 			return (NTSC_CPU_FREQUENCY / (16 * frequency)) - 1;
-		case NesChannel::TRIANGLE:
+		case TRIANGLE:
 			return (NTSC_CPU_FREQUENCY / (32 * frequency)) - 1;
-		case NesChannel::SAWTOOTH:
+		case SAWTOOTH:
 			return (NTSC_CPU_FREQUENCY / (14 * frequency)) - 1;
 		default:
 			return -1;

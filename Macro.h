@@ -14,14 +14,15 @@ template <MacroType type> class Macro {
 private:
 	NesDuty convertToVrc6Duty(NesDuty value) const {
 		switch (value) {
-		case NesDuty::PULSE_12:
-			return NesDuty::VPULSE_12;
-		case NesDuty::PULSE_25:
-			return NesDuty::VPULSE_25;
-		case NesDuty::PULSE_50:
-			return NesDuty::VPULSE_50;
-		case NesDuty::PULSE_75:
-			return NesDuty::VPULSE_25;
+		using enum NesDuty;
+		case PULSE_12:
+			return VPULSE_12;
+		case PULSE_25:
+			return VPULSE_25;
+		case PULSE_50:
+			return VPULSE_50;
+		case PULSE_75:
+			return VPULSE_25;
 		default:
 			return value;
 		}

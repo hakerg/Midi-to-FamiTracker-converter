@@ -10,16 +10,17 @@ public:
 
 	Channel channel;
 	std::shared_ptr<Instrument> instrument;
+	bool needRelease;
 	Duty duty;
 	int drumKeyOrder;
 	std::optional<Note> note;
 	int uninterruptedTicks;
 
-	Preset(Channel channel, std::shared_ptr<Instrument> instrument, Duty duty = Duty::ANY) :
-		channel(channel), instrument(instrument), duty(duty), drumKeyOrder(0), uninterruptedTicks(0) {}
+	Preset(Channel channel, std::shared_ptr<Instrument> instrument, bool needRelease, Duty duty = Duty::ANY) :
+		channel(channel), instrument(instrument), needRelease(needRelease), duty(duty), drumKeyOrder(0), uninterruptedTicks(0) {}
 
-	Preset(Channel channel, std::shared_ptr<Instrument> instrument, Duty duty, int drumKeyOrder, std::optional<Note> note, int uninterruptedTicks = 0) :
-		channel(channel), instrument(instrument), duty(duty), drumKeyOrder(drumKeyOrder), note(note), uninterruptedTicks(uninterruptedTicks) {}
+	Preset(Channel channel, std::shared_ptr<Instrument> instrument, bool needRelease, Duty duty, int drumKeyOrder, std::optional<Note> note, int uninterruptedTicks = 0) :
+		channel(channel), instrument(instrument), needRelease(needRelease), duty(duty), drumKeyOrder(drumKeyOrder), note(note), uninterruptedTicks(uninterruptedTicks) {}
 
 	std::vector<NesChannel> getValidNesChannels() const {
 		switch (channel) {

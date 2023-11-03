@@ -6,7 +6,7 @@
 class AssignData {
 public:
 	int eventIndex;
-	std::array<AssignChannelData, 16> nesData;
+	std::array<AssignChannelData, 16> nesData; // TODO: assign by preset, not midi channel
 	std::optional<double> score;
 
 	explicit AssignData(int eventIndex) : eventIndex(eventIndex) {}

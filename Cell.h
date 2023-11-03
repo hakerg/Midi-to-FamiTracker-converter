@@ -28,7 +28,8 @@ public:
 	explicit Cell(Type type = Type::EMPTY) : type(type) {}
 
 	static bool isVrc6(NesChannel channel) {
-		return channel == NesChannel::PULSE3 || channel == NesChannel::PULSE4 || channel == NesChannel::SAWTOOTH;
+		using enum NesChannel;
+		return channel == PULSE3 || channel == PULSE4 || channel == SAWTOOTH;
 	}
 
 	void Note(Note note_, std::shared_ptr<Instrument> instrument_, int volume_ = -1) {
@@ -40,16 +41,17 @@ public:
 
 	void exportTxt(std::wofstream& file, int columnSize, NesChannel channel) const {
 		switch (type) {
-		case Type::EMPTY:
+		using enum Cell::Type;
+		case EMPTY:
 			file << "...";
 			break;
-		case Type::NOTE:
+		case NOTE:
 			file << (channel == NesChannel::NOISE ? note->toHexString() : note->toNoteString());
 			break;
-		case Type::STOP:
+		case STOP:
 			file << "---";
 			break;
-		case Type::RELEASE:
+		case RELEASE:
 			file << "===";
 			break;
 		}
@@ -129,7 +131,7 @@ public:
 
 	// 01 - 1F sets speed, 20 - FF sets tempo
 	void SpeedTempo(int speed, int tempo) {
-		removeIf(effects, [](Effect& effect) { return effect.string[0] == L'F'; });
+		std::erase_if(effects, [](Effect& effect) { return effect.string[0] == L'F'; });
 		addEffect(std::wstring(L"F") + hex2(speed));
 		addEffect(std::wstring(L"F") + hex2(tempo));
 	}

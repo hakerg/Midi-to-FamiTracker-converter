@@ -15,7 +15,7 @@ private:
 	static std::vector<int> getSortedIndices(std::array<double, 16> const& array) {
 		std::vector<int> indices(16);
 		std::iota(indices.begin(), indices.end(), 0);
-		std::sort(indices.begin(), indices.end(), [&](int a, int b) { return array[a] > array[b]; });
+		std::ranges::sort(indices, [&](int a, int b) { return array[a] > array[b]; });
 		return indices;
 	}
 
@@ -93,6 +93,7 @@ private:
 			assignData.score.value() += channelScore;
 		}
 
+		// TODO: more score for pulse duty diversity
 		return assignData.score.value();
 	}
 
@@ -113,35 +114,37 @@ private:
 	}
 
 	static std::vector<AssignChannelData> getMelodicAssignConfigurations(Preset const& preset) {
+		using enum Preset::Duty;
+		using enum NesChannel;
 		std::vector<AssignChannelData> results;
 
-		std::array<Preset::Duty, 4> pulseDuties = { Preset::Duty::ANY, Preset::Duty::PULSE_12, Preset::Duty::PULSE_25, Preset::Duty::PULSE_50 };
-		for (Preset::Duty duty : pulseDuties) {
+		for (std::array<Preset::Duty, 4> pulseDuties = { ANY, PULSE_12, PULSE_25, PULSE_50 }; // ANY is handled in SoundWaveProfile::getSimilarity
+			Preset::Duty duty : pulseDuties) {
 			if (USE_VRC6) {
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE4 }));
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE3 }));
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE3, NesChannel::PULSE4 }));
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE2, NesChannel::PULSE4 }));
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE2, NesChannel::PULSE3 }));
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE2, NesChannel::PULSE3, NesChannel::PULSE4 }));
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE4 }));
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE3 }));
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE3, NesChannel::PULSE4 }));
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE2, NesChannel::PULSE4 }));
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE2, NesChannel::PULSE3 }));
-				results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE2, NesChannel::PULSE3, NesChannel::PULSE4 }));
+				results.push_back(AssignChannelData(duty, { PULSE4 }));
+				results.push_back(AssignChannelData(duty, { PULSE3 }));
+				results.push_back(AssignChannelData(duty, { PULSE3, PULSE4 }));
+				results.push_back(AssignChannelData(duty, { PULSE2, PULSE4 }));
+				results.push_back(AssignChannelData(duty, { PULSE2, PULSE3 }));
+				results.push_back(AssignChannelData(duty, { PULSE2, PULSE3, PULSE4 }));
+				results.push_back(AssignChannelData(duty, { PULSE1, PULSE4 }));
+				results.push_back(AssignChannelData(duty, { PULSE1, PULSE3 }));
+				results.push_back(AssignChannelData(duty, { PULSE1, PULSE3, PULSE4 }));
+				results.push_back(AssignChannelData(duty, { PULSE1, PULSE2, PULSE4 }));
+				results.push_back(AssignChannelData(duty, { PULSE1, PULSE2, PULSE3 }));
+				results.push_back(AssignChannelData(duty, { PULSE1, PULSE2, PULSE3, PULSE4 }));
 			}
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE2 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE1 }));
-			results.push_back(AssignChannelData(duty, { NesChannel::PULSE1, NesChannel::PULSE2 }));
+			results.push_back(AssignChannelData(duty, { PULSE2 }));
+			results.push_back(AssignChannelData(duty, { PULSE1 }));
+			results.push_back(AssignChannelData(duty, { PULSE1, PULSE2 }));
 		}
 
 		// cannot use triangle to play i.e. piano, because triangle does not decay
 		if (preset.instrument && preset.instrument->volumeMacro && preset.instrument->volumeMacro->releasePosition >= 0) {
-			results.push_back(AssignChannelData(Preset::Duty::ANY, { NesChannel::TRIANGLE }));
+			results.push_back(AssignChannelData(ANY, { TRIANGLE }));
 		}
 		if (USE_VRC6) {
-			results.push_back(AssignChannelData(Preset::Duty::ANY, { NesChannel::SAWTOOTH }));
+			results.push_back(AssignChannelData(ANY, { SAWTOOTH }));
 		}
 
 		return results;
@@ -163,7 +166,7 @@ private:
 	}
 
 	AssignData tryUnassignSomeChannels(AssignData& originalData, std::unordered_set<AssignData>& processed) const {
-		if (processed.find(originalData) != processed.end()) {
+		if (processed.contains(originalData)) {
 			return originalData;
 		}
 		processed.insert(originalData);
@@ -228,7 +231,7 @@ public:
 	// how many chords with specific note count for each channel
 	std::array<std::unordered_map<int, int>, 16> chords{};
 
-	// [interrupting chan][interruped chan]
+	// [interrupting chan][interrupted chan]
 	std::array<std::array<int, 16>, 16> interruptingNotes{};
 
 	explicit AssignDataGenerator(MidiState const& midiState, int eventIndex, InstrumentBase* instrumentBase) :
@@ -265,7 +268,7 @@ public:
 				}
 
 				if (event.chan != chan2) {
-					interruptingNotes[event.chan][chan2]++; // TODO: add 1/30 seconds tolerancy
+					interruptingNotes[event.chan][chan2]++;
 				}
 			}
 		}

@@ -40,18 +40,21 @@ public:
         return row / rowsPerSecond;
     }
 
-    int countChannelsWithSameKey(NesChannel ignoreNesChannel, MidiEvent const& event, double minNoteTimeLeft) const {
-        if (ignoreNesChannel == NesChannel::NOISE || ignoreNesChannel == NesChannel::DPCM || event.noteEndSeconds - seconds < minNoteTimeLeft) {
+    int countChannelsWithSameKeyAndLength(NesChannel ignoreNesChannel, MidiEvent const& event, double timeTollerancy) const {
+        using enum NesChannel;
+        if (ignoreNesChannel == NOISE || ignoreNesChannel == DPCM || event.noteEndSeconds - seconds < timeTollerancy) {
             return 0;
         }
         int count = 0;
         for (int i = 0; i < Pattern::CHANNELS; i++) {
             auto nesChannel = NesChannel(i);
-            if (nesChannel == ignoreNesChannel || nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM) {
+            if (nesChannel == ignoreNesChannel || nesChannel == NOISE || nesChannel == DPCM) {
                 continue;
             }
             const std::optional<PlayingNesNote>& note = getNote(nesChannel);
-            if (note && note->playing && event.key == note->event.key && note->event.noteEndSeconds - seconds >= minNoteTimeLeft) {
+            if (note && note->playing && event.key == note->event.key && note->event.noteEndSeconds - seconds >= timeTollerancy &&
+                std::abs(note->event.noteEndSeconds - event.noteEndSeconds) <= timeTollerancy) {
+
                 count++;
             }
         }
@@ -59,13 +62,14 @@ public:
     }
 
     int countChannelsWithSameFrequency(NesChannel ignoreNesChannel, double frequency) const {
-        if (ignoreNesChannel == NesChannel::NOISE || ignoreNesChannel == NesChannel::DPCM) {
+        using enum NesChannel;
+        if (ignoreNesChannel == NOISE || ignoreNesChannel == DPCM) {
             return 0;
         }
         int count = 0;
         for (int i = 0; i < Pattern::CHANNELS; i++) {
             auto nesChannel = NesChannel(i);
-            if (nesChannel == ignoreNesChannel || nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM) {
+            if (nesChannel == ignoreNesChannel || nesChannel == NOISE || nesChannel == DPCM) {
                 continue;
             }
             const std::optional<PlayingNesNote>& note = getNote(nesChannel);
