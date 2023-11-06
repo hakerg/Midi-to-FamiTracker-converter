@@ -23,7 +23,7 @@ public:
 	std::optional<Note> note;
 	std::shared_ptr<Instrument> instrument;
 	int volume = -1;
-	std::vector<Effect> effects;
+	std::vector<Effect> effects{};
 
 	explicit Cell(Type type = Type::EMPTY) : type(type) {}
 

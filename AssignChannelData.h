@@ -6,7 +6,7 @@
 
 class AssignChannelData {
 public:
-	Preset::Duty duty = Preset::Duty::ANY;
+	Preset::Duty duty = Preset::Duty::UNSPECIFIED;
 	NesChannelSet nesChannels;
 
 	AssignChannelData() = default;

@@ -30,3 +30,14 @@ std::wstring hex2(int number) {
 	stream << std::uppercase << std::hex << std::setfill(L'0') << std::setw(2) << number;
 	return stream.str();
 }
+
+template<typename Key, typename Value> Value getMapValueOrDefault(const std::unordered_map<Key, Value>& map, const Key& key, const Value& defaultValue) {
+	auto it = map.find(key);
+	if (it == map.end()) {
+		// Key not found, return the default_value
+		return defaultValue;
+	}
+
+	// Key found
+	return it->second;
+}

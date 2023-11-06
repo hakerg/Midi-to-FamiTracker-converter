@@ -60,7 +60,7 @@ private:
 
     void resetMidi() {
         setTempo(120);
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < CHANNEL_COUNT; i++) {
             getChannel(i) = MidiChannelState();
         }
         getChannel(9).useDrums = true;
@@ -71,7 +71,11 @@ private:
     }
 
 public:
-	std::array<MidiChannelState, 16> channels;
+	static constexpr int CHANNEL_COUNT = 16;
+	static constexpr int PROGRAM_COUNT = 128;
+	static constexpr int KEY_COUNT = 128;
+
+	std::array<MidiChannelState, CHANNEL_COUNT> channels;
 	double bpm = 120;
 
     MidiState() {

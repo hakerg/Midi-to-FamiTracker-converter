@@ -11,7 +11,7 @@ private:
 		return (flags & std::byte(1 << index)) != std::byte(0);
 	}
 
-	void goToValid() {
+	void goToNext() {
 		while (index < Pattern::CHANNELS && !isValid()) {
 			index++;
 		}
@@ -23,7 +23,7 @@ public:
 			this->index = Pattern::CHANNELS;
 		}
 		else {
-			goToValid();
+			goToNext();
 		}
 	}
 
@@ -37,7 +37,7 @@ public:
 
 	NesChannelSetIterator& operator ++ () {
 		index++;
-		goToValid();
+		goToNext();
 		return *this;
 	}
 };
@@ -75,10 +75,10 @@ public:
 	}
 
 	NesChannelSetIterator begin() const {
-		return NesChannelSetIterator(flags, 0);
+		return {flags, 0};
 	}
 
 	NesChannelSetIterator end() const {
-		return NesChannelSetIterator(flags, Pattern::CHANNELS);
+		return {flags, Pattern::CHANNELS};
 	}
 };

@@ -2,11 +2,12 @@
 #include "commons.h"
 #include "Cell.h"
 #include "AssignChannelData.h"
+#include "MidiState.h"
 
 class AssignData {
 public:
 	int eventIndex;
-	std::array<AssignChannelData, 16> nesData; // TODO: assign by preset, not midi channel
+	std::array<AssignChannelData, MidiState::CHANNEL_COUNT> nesData;
 	std::optional<double> score;
 
 	explicit AssignData(int eventIndex) : eventIndex(eventIndex) {}
@@ -30,7 +31,7 @@ public:
 	}
 
 	bool operator == (const AssignData& other) const {
-		for (int i = 0; i < 16; i++) {
+		for (int i = 0; i < nesData.size(); i++) {
 			if (!(nesData[i] == other.nesData[i])) {
 				return false;
 			}

@@ -29,15 +29,17 @@ private:
 				assignGenerator.addNote(event, state);
 			}
 			else if (event.event == MIDI_EVENT_PROGRAM || event.event == MIDI_EVENT_DRUMS) {
-				if (assignGenerator.notes[event.chan] > 0) {
+				if (assignGenerator.hasAnyNotes(event.chan)) {
+					assignGenerator.calculateMidiData();
 					channelAssignData.push_back(assignGenerator.generateAssignData());
 					assignGenerator = AssignDataGenerator(state, i, &base);
 				}
 				else {
-					assignGenerator.originMidiState = state;
+					assignGenerator.setMidiState(state);
 				}
 			}
 		}
+		assignGenerator.calculateMidiData();
 		channelAssignData.push_back(assignGenerator.generateAssignData());
 	}
 
@@ -56,7 +58,7 @@ private:
 
 		// don't interrupt current note with higher priorityOrder sound (e.g. crash with hi-hat)
 		if (const std::optional<PlayingNesNote>& note = nesState.getNote(checkedTrigger.nesChannel);
-			note && event.seconds < note->canInterruptSeconds && checkedTrigger.drumKeyOrder > note->triggerData.drumKeyOrder) {
+			note && event.seconds < note->canInterruptSeconds && int(checkedTrigger.preset.order) > int(note->triggerData.preset.order)) {
 
 			score.set(INTERRUPTS, -1);
 		}
@@ -64,9 +66,9 @@ private:
 		score.set(PLAYING, 2);
 		score.set(PLAYABLE_RANGE, Note::isInPlayableRange(checkedTrigger.nesChannel, event.key) ? 1 : 0);
 		score.set(NOTE_TIME, 0);
-		score.set(PRIORITY, -checkedTrigger.drumKeyOrder);
+		score.set(PRIORITY, -int(checkedTrigger.preset.order));
 		score.set(NOTE_END_TIME, min(MIN_NOTE_SECONDS, event.noteEndSeconds - event.seconds));
-		score.set(TONE_OVERLAP, -nesState.countChannelsWithSameKeyAndLength(checkedTrigger.nesChannel, event, MIN_NOTE_SECONDS));
+		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(checkedTrigger.nesChannel, event, MIN_NOTE_SECONDS));
 		score.set(NOTE_HEIGHT, LOWER_NOTES_FIRST ? -event.key : event.key);
 		score.set(VELOCITY, event.velocity);
 
@@ -89,9 +91,9 @@ private:
 		score.set(PLAYING, note->playing ? 2 : 1);
 		score.set(PLAYABLE_RANGE, Note::isInPlayableRange(triggerData.nesChannel, note->event.key) ? 1 : 0);
 		score.set(NOTE_TIME, -max(0, nesState.seconds - note->event.seconds - MIN_NOTE_SECONDS));
-		score.set(PRIORITY, -triggerData.drumKeyOrder);
+		score.set(PRIORITY, -int(triggerData.preset.order));
 		score.set(NOTE_END_TIME, min(MIN_NOTE_SECONDS, note->event.noteEndSeconds - nesState.seconds));
-		score.set(TONE_OVERLAP, -nesState.countChannelsWithSameKeyAndLength(nesChannel, note->event, MIN_NOTE_SECONDS));
+		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(nesChannel, note->event, MIN_NOTE_SECONDS));
 		score.set(NOTE_HEIGHT, LOWER_NOTES_FIRST ? -note->event.key : note->event.key);
 		score.set(VELOCITY, note->event.velocity);
 

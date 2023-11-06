@@ -152,6 +152,7 @@
     <ClInclude Include="InstrumentBase.h" />
     <ClInclude Include="KeyDpcmSample.h" />
     <ClInclude Include="Macro.h" />
+    <ClInclude Include="MidiChannelNotesData.h" />
     <ClInclude Include="MidiChannelState.h" />
     <ClInclude Include="InstrumentSelector.h" />
     <ClInclude Include="MidiEvent.h" />

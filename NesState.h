@@ -38,17 +38,22 @@ public:
 
     double getSeconds(int row) const {
         return row / rowsPerSecond;
-    }
+	}
 
-    int countChannelsWithSameKeyAndLength(NesChannel ignoreNesChannel, MidiEvent const& event, double timeTollerancy) const {
+	static bool isPulse(NesChannel channel) {
+		using enum NesChannel;
+		return channel == PULSE1 || channel == PULSE2 || channel == PULSE3 || channel == PULSE4;
+	}
+
+    int countPulseChannelsWithSameKeyAndLength(NesChannel ignoreNesChannel, MidiEvent const& event, double timeTollerancy) const {
         using enum NesChannel;
-        if (ignoreNesChannel == NOISE || ignoreNesChannel == DPCM || event.noteEndSeconds - seconds < timeTollerancy) {
+        if (!isPulse(ignoreNesChannel) || event.noteEndSeconds - seconds < timeTollerancy) {
             return 0;
         }
         int count = 0;
         for (int i = 0; i < Pattern::CHANNELS; i++) {
             auto nesChannel = NesChannel(i);
-            if (nesChannel == ignoreNesChannel || nesChannel == NOISE || nesChannel == DPCM) {
+            if (nesChannel == ignoreNesChannel || !isPulse(nesChannel)) {
                 continue;
             }
             const std::optional<PlayingNesNote>& note = getNote(nesChannel);
@@ -59,21 +64,29 @@ public:
             }
         }
         return count;
-    }
+	}
 
-    int countChannelsWithSameFrequency(NesChannel ignoreNesChannel, double frequency) const {
+	static bool ignoreToneOverlap(NesChannel channel) {
+		using enum NesChannel;
+		return channel == NOISE || channel == DPCM || channel == TRIANGLE;
+	}
+
+    int countToneOverlappingChannels(NesChannel ignoreNesChannel, double frequency) const {
         using enum NesChannel;
-        if (ignoreNesChannel == NOISE || ignoreNesChannel == DPCM) {
+        if (ignoreToneOverlap(ignoreNesChannel)) {
             return 0;
         }
         int count = 0;
         for (int i = 0; i < Pattern::CHANNELS; i++) {
             auto nesChannel = NesChannel(i);
-            if (nesChannel == ignoreNesChannel || nesChannel == NOISE || nesChannel == DPCM) {
+            if (nesChannel == ignoreNesChannel || ignoreToneOverlap(nesChannel)) {
                 continue;
             }
             const std::optional<PlayingNesNote>& note = getNote(nesChannel);
-            if (note && note->playing && std::abs(frequency - note->frequencyAfterPitch) < 1) {
+            if (note && note->playing && (
+                std::abs(frequency - note->frequencyAfterPitch) < 1 ||
+                std::abs(frequency * 0.5 - note->frequencyAfterPitch) < 1 ||
+                std::abs(frequency - note->frequencyAfterPitch * 0.5) < 1)) {
                 count++;
             }
         }

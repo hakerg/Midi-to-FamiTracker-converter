@@ -1,6 +1,7 @@
 #pragma once
 #include "commons.h"
 #include "MidiEvent.h"
+#include "MidiState.h"
 
 class MidiEventParser {
 private:
@@ -22,12 +23,12 @@ public:
 	static std::vector<MidiEvent> getEvents(HSTREAM handle) {
         std::vector<BASS_MIDI_EVENT> bassEvents = getBassEvents(handle);
 
-        auto noteOnIndexesPtr = std::make_unique<std::array<std::array<std::vector<int>, 128>, 16>>();
+        auto noteOnIndexesPtr = std::make_unique<std::array<std::array<std::vector<int>, MidiState::KEY_COUNT>, MidiState::CHANNEL_COUNT>>();
         auto& noteOnIndexes = *noteOnIndexesPtr.get();
 
         std::vector<MidiEvent> results;
         for (auto& bassEvent : bassEvents) {
-            if (bassEvent.chan >= 16) {
+            if (bassEvent.chan >= MidiState::CHANNEL_COUNT) {
                 continue;
             }
 
@@ -43,7 +44,7 @@ public:
                 noteOnIndexes[event.chan][event.key].clear();
             }
             else if (event.event == MIDI_EVENT_NOTESOFF || event.event == MIDI_EVENT_SOUNDOFF) {
-                for (int key = 0; key < 128; key++) {
+                for (int key = 0; key < MidiState::KEY_COUNT; key++) {
                     for (int& index : noteOnIndexes[event.chan][key]) {
                         results[index].linkNoteEnd(event);
                     }

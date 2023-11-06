@@ -10,7 +10,7 @@
 class Converter {
 private:
     static constexpr int ROWS_PER_PATTERN = 256;
-    static constexpr double MAX_DETUNE_SEMITONES = 0.12;
+    static constexpr double MAX_DETUNE_SEMITONES = 0.2;
     static constexpr bool ADJUST_SPEED = true;
 
     std::array<double, Pattern::CHANNELS> nesVolumeFactor = { 0.6, 0.6, 1.0, 0.8, 1.0, 0.6, 0.6, 0.6 };
@@ -43,7 +43,7 @@ private:
 		// ignore if already stopped
         if (stopType == Cell::Type::RELEASE) {
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
-            if (!note || !note->playing || !note->triggerData.needRelease) { // the last condition causes that note has playing=true after release, but that's fine
+            if (!note || !note->playing || !note->triggerData.preset.needRelease) { // the last condition causes that note has playing=true after release, but that's fine
                 return;
             }
         }
@@ -81,11 +81,11 @@ private:
         auto triggerData = instrumentSelector.getNoteTriggers(event, eventIndex, midiState.getChannel(event.chan), nesState);
 
         for (auto& data : triggerData) {
-            double canInterruptSeconds = nesState.seconds + data.uninterruptedTicks / 60.0;
+            double canInterruptSeconds = nesState.seconds + data.preset.uninterruptedTicks / 60.0;
             nesState.setNote(data.nesChannel, PlayingNesNote(event, nesState.seconds, data, canInterruptSeconds));
 
             Cell& currentCell = getCurrentCell(data.nesChannel);
-            currentCell.Note(data.note ? data.note.value() : getNesNote(data.nesChannel, event.key), data.instrument);
+            currentCell.Note(data.preset.note ? data.preset.note.value() : getNesNote(data.nesChannel, event.key), data.preset.instrument);
 
             // optional was set above, so shouldn't be empty
             setNesPitch(event.chan, data.nesChannel, nesState.getNote(data.nesChannel).value());
@@ -119,7 +119,7 @@ private:
 
         auto basePeriod = int(round(PitchCalculator::calculatePeriodByKey(nesChannel, key)));
         int delta = 0;
-        while (nesState.countChannelsWithSameFrequency(nesChannel, PitchCalculator::calculateFrequencyByPeriod(nesChannel, double(basePeriod) + delta)) > 0) {
+        while (nesState.countToneOverlappingChannels(nesChannel, PitchCalculator::calculateFrequencyByPeriod(nesChannel, double(basePeriod) + delta)) > 0) {
             if (delta <= 0) {
                 delta = -delta + 1;
             }
@@ -153,10 +153,11 @@ private:
             getCurrentCell(nesChannel).FinePitch(finePitch);
             note.frequencyAfterPitch = PitchCalculator::calculateFrequencyByPeriod(nesChannel, targetPeriod);
         }
-        else { // pitch is out of range for FamiTracker
-            // we need to create a new note, but Preset should have needRelease=true to make it less noticeable
-            // otherwise just stop the note because we can't play it :(
-            if (note.playing && note.triggerData.needRelease) {
+        else {
+            // pitch is out of range for FamiTracker
+            // we need to create a new note, but Preset should be non-decaying to make it less noticeable
+            // otherwise just stop the note because there is no way to play it :(
+            if (note.playing && note.triggerData.preset.needRelease) {
                 auto key = int(round(targetKey));
 
                 // fixes stack overflow
@@ -164,7 +165,7 @@ private:
                     return;
                 }
 
-                getCurrentCell(nesChannel).Note(getNesNote(nesChannel, key), note.triggerData.instrument);
+                getCurrentCell(nesChannel).Note(getNesNote(nesChannel, key), note.triggerData.preset.instrument);
                 note.keyAfterPitch = key;
                 setNesPitch(midiChan, nesChannel, note);
             }
@@ -210,7 +211,7 @@ private:
     }
 
     void resetMidi() {
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < MidiState::CHANNEL_COUNT; i++) {
             updateNesVolume(i);
             updateNesPitch(i);
         }

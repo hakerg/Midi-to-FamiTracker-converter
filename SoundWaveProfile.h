@@ -6,6 +6,7 @@
 class SoundWaveProfile {
 private:
 	static constexpr std::array<std::array<double, 8>, 8> similarityMatrix = {
+		//                      P_12  P_25  P_50   TRI    NNOR  NLOOP DPCM   SAW    
 		std::array<double, 8> { 1   , 0.95, 0.85,  0.55,  0   , 0   , 0   ,  0.80 }, // PULSE_12
 		std::array<double, 8> { 0.95, 1   , 0.90,  0.60,  0   , 0   , 0   ,  0.75 }, // PULSE_25
 		std::array<double, 8> { 0.85, 0.90, 1   ,  0.65,  0   , 0   , 0   ,  0.70 }, // PULSE_50
@@ -57,7 +58,7 @@ public:
 		int indexA = getIndex();
 		int indexB = other.getIndex();
 		if (indexA == -1 || indexB == -1) {
-			return channel == other.channel && duty == other.duty ? 1 : 0; // it allows to have duty ANY
+			return channel == other.channel && duty == other.duty ? 1 : 0; // it allows to have unspecified duty
 		}
 		return similarityMatrix[indexA][indexB];
 	}
