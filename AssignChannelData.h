@@ -8,15 +8,16 @@ class AssignChannelData {
 public:
 	Preset::Duty duty = Preset::Duty::UNSPECIFIED;
 	NesChannelSet nesChannels;
+	bool lowerNotesFirst = false;
 
 	AssignChannelData() = default;
 
-	AssignChannelData(Preset::Duty duty, std::unordered_set<NesChannel> const& nesChannels) : duty(duty), nesChannels(nesChannels) {}
+	AssignChannelData(Preset::Duty duty, std::unordered_set<NesChannel> const& nesChannels, bool lowerNotesFirst) : duty(duty), nesChannels(nesChannels), lowerNotesFirst(lowerNotesFirst) {}
 
 	std::vector<NoteTriggerData> getTriggers(Preset const& preset) const {
 		std::vector<NoteTriggerData> results;
 		for (NesChannel nesChannel : nesChannels) {
-			results.emplace_back(nesChannel, duty, preset);
+			results.emplace_back(nesChannel, duty, preset, lowerNotesFirst);
 		}
 		return results;
 	}

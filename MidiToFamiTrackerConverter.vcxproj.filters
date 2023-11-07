@@ -131,5 +131,8 @@
     <ClInclude Include="MidiEventParser.h">
       <Filter>Pliki nagłówkowe\Midi</Filter>
     </ClInclude>
+    <ClInclude Include="MidiChannelNotesData.h">
+      <Filter>Pliki nagłówkowe\Conversion</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

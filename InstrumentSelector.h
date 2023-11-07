@@ -12,7 +12,6 @@
 
 class InstrumentSelector {
 private:
-	static constexpr bool LOWER_NOTES_FIRST = false;
 	static constexpr double MIN_NOTE_SECONDS = 1 / 30.0;
 
 	InstrumentBase base;
@@ -43,7 +42,7 @@ private:
 		channelAssignData.push_back(assignGenerator.generateAssignData());
 	}
 
-	AssignData& getAssign(int eventIndex) {
+	const AssignData& getAssign(int eventIndex) const {
 		for (int i = 1; i < channelAssignData.size(); i++) {
 			if (channelAssignData[i].eventIndex > eventIndex) {
 				return channelAssignData[size_t(i) - 1];
@@ -52,7 +51,7 @@ private:
 		return channelAssignData.back();
 	}
 
-	PlayScore calculatePlayScore(NesState const& nesState, NoteTriggerData const& checkedTrigger, MidiEvent const& event) const {
+	static PlayScore calculatePlayScore(NesState const& nesState, NoteTriggerData const& checkedTrigger, MidiEvent const& event) {
 		using enum PlayScore::Level;
 		auto score = PlayScore(0);
 
@@ -69,13 +68,13 @@ private:
 		score.set(PRIORITY, -int(checkedTrigger.preset.order));
 		score.set(NOTE_END_TIME, min(MIN_NOTE_SECONDS, event.noteEndSeconds - event.seconds));
 		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(checkedTrigger.nesChannel, event, MIN_NOTE_SECONDS));
-		score.set(NOTE_HEIGHT, LOWER_NOTES_FIRST ? -event.key : event.key);
+		score.set(NOTE_HEIGHT, checkedTrigger.lowerNotesFirst ? -event.key : event.key);
 		score.set(VELOCITY, event.velocity);
 
 		return score;
 	}
 
-	PlayScore calculateCurrentPlayScore(NesState const& nesState, NesChannel nesChannel) {
+	static PlayScore calculateCurrentPlayScore(NesState const& nesState, NesChannel nesChannel) {
 		using enum PlayScore::Level;
 		auto score = PlayScore(0);
 
@@ -94,13 +93,13 @@ private:
 		score.set(PRIORITY, -int(triggerData.preset.order));
 		score.set(NOTE_END_TIME, min(MIN_NOTE_SECONDS, note->event.noteEndSeconds - nesState.seconds));
 		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(nesChannel, note->event, MIN_NOTE_SECONDS));
-		score.set(NOTE_HEIGHT, LOWER_NOTES_FIRST ? -note->event.key : note->event.key);
+		score.set(NOTE_HEIGHT, triggerData.lowerNotesFirst ? -note->event.key : note->event.key);
 		score.set(VELOCITY, note->event.velocity);
 
 		return score;
 	}
 
-	void addTriggerIfPossible(std::vector<NoteTriggerData>& result, std::vector<NoteTriggerData> const& possibleTriggers, MidiEvent const& event, NesState const& nesState) {
+	static void addTriggerIfPossible(std::vector<NoteTriggerData>& result, std::vector<NoteTriggerData> const& possibleTriggers, MidiEvent const& event, NesState const& nesState) {
 		if (possibleTriggers.empty()) {
 			return;
 		}
@@ -127,7 +126,7 @@ public:
 		fillChannelAssignData(handle, events);
 	}
 
-	std::vector<NoteTriggerData> getNoteTriggers(MidiEvent const& event, int eventIndex, MidiChannelState const& midiState, NesState const& nesState) {
+	std::vector<NoteTriggerData> getNoteTriggers(MidiEvent const& event, int eventIndex, MidiChannelState const& midiState, NesState const& nesState) const {
 		std::vector<NoteTriggerData> result;
 
 		// drums can have multiple triggers (i.e. noise and dpcm for the same note)
@@ -137,7 +136,7 @@ public:
 			for (auto const& preset : presets) {
 				std::vector<NesChannel> nesChannels = preset.getValidNesChannels();
 				for (auto const& nesChannel : nesChannels) {
-					addTriggerIfPossible(result, { NoteTriggerData(nesChannel, preset.duty, preset) }, event, nesState);
+					addTriggerIfPossible(result, { NoteTriggerData(nesChannel, preset.duty, preset, false) }, event, nesState);
 				}
 			}
 		}

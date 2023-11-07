@@ -21,12 +21,13 @@ private:
 	int eventIndex;
 	InstrumentBase* instrumentBase;
 	std::array<MidiChannelNotesData, MidiState::CHANNEL_COUNT> midiData;
+	static std::array<std::vector<AssignChannelData>, 2048> assignConfigurationLookup; // index is 11 bits
 
 	static double getAudioSimilarity(Preset const& preset, AssignChannelData const& channelData) {
 		return SoundWaveProfile(preset.channel, preset.duty).getSimilarity(SoundWaveProfile(channelData.getChannel(), channelData.duty));
 	}
 
-	bool hasPulseDuty(AssignData const& assignData, Preset::Duty duty) const {
+	static bool hasPulseDuty(AssignData const& assignData, Preset::Duty duty) {
 		for (auto& nesData : assignData.nesData) {
 			using enum NesChannel;
 			if (nesData.nesChannels.empty() || nesData.duty != duty) {
@@ -44,7 +45,7 @@ private:
 		return false;
 	}
 
-	int getDutyDiversityScore(AssignData const& assignData) const {
+	static int getDutyDiversityScore(AssignData const& assignData) {
 		using enum Preset::Duty;
 
 		int diversity = 1;
@@ -135,7 +136,15 @@ private:
 		return 0; // TODO: count similar notes on different channels at the same time
 	}
 
-	static std::vector<AssignChannelData> getMelodicAssignConfigurations(Preset const& preset, int maxChannelCount) {
+	static int getAssignConfigurationId(Preset::Duty duty, Preset::Channel channel, bool nonDecaying, int maxChannelCount, bool lowerNotesFirst) {
+		return int(duty) // 3b
+			+ (int(channel) << 3) // 3b
+			+ (int(nonDecaying) << 6) // 1b
+			+ (min(4, maxChannelCount) << 7) // 3b
+			+ (int(lowerNotesFirst) << 10); // 1b
+	}
+
+	static std::vector<AssignChannelData> getMelodicAssignConfigurations(Preset::Duty presetDuty, bool nonDecaying, int maxChannelCount, bool lowerNotesFirst) {
 		using enum Preset::Duty;
 		using enum NesChannel;
 		std::vector<AssignChannelData> results;
@@ -147,58 +156,62 @@ private:
 		static const std::vector<Preset::Duty> unspecifiedDuty = { UNSPECIFIED };
 		static const std::vector<Preset::Duty> pulseDuties = { PULSE_12, PULSE_25, PULSE_50 };
 
-		for (const std::vector<Preset::Duty>& duties = (preset.duty == Preset::Duty::UNSPECIFIED ? unspecifiedDuty : pulseDuties); Preset::Duty duty : duties) {
+		for (const std::vector<Preset::Duty>& duties = (presetDuty == Preset::Duty::UNSPECIFIED ? unspecifiedDuty : pulseDuties); Preset::Duty duty : duties) {
 			if (USE_VRC6) {
-				results.push_back(AssignChannelData(duty, { PULSE4 }));
-				results.push_back(AssignChannelData(duty, { PULSE3 }));
+				results.push_back(AssignChannelData(duty, { PULSE4 }, lowerNotesFirst));
+				results.push_back(AssignChannelData(duty, { PULSE3 }, lowerNotesFirst));
 				if (maxChannelCount >= 2) {
-					results.push_back(AssignChannelData(duty, { PULSE3, PULSE4 }));
-					results.push_back(AssignChannelData(duty, { PULSE2, PULSE4 }));
-					results.push_back(AssignChannelData(duty, { PULSE2, PULSE3 }));
-					results.push_back(AssignChannelData(duty, { PULSE1, PULSE4 }));
-					results.push_back(AssignChannelData(duty, { PULSE1, PULSE3 }));
+					results.push_back(AssignChannelData(duty, { PULSE3, PULSE4 }, lowerNotesFirst));
+					results.push_back(AssignChannelData(duty, { PULSE2, PULSE4 }, lowerNotesFirst));
+					results.push_back(AssignChannelData(duty, { PULSE2, PULSE3 }, lowerNotesFirst));
+					results.push_back(AssignChannelData(duty, { PULSE1, PULSE4 }, lowerNotesFirst));
+					results.push_back(AssignChannelData(duty, { PULSE1, PULSE3 }, lowerNotesFirst));
 				}
 				if (maxChannelCount >= 3) {
-					results.push_back(AssignChannelData(duty, { PULSE2, PULSE3, PULSE4 }));
-					results.push_back(AssignChannelData(duty, { PULSE1, PULSE3, PULSE4 }));
-					results.push_back(AssignChannelData(duty, { PULSE1, PULSE2, PULSE4 }));
-					results.push_back(AssignChannelData(duty, { PULSE1, PULSE2, PULSE3 }));
+					results.push_back(AssignChannelData(duty, { PULSE2, PULSE3, PULSE4 }, lowerNotesFirst));
+					results.push_back(AssignChannelData(duty, { PULSE1, PULSE3, PULSE4 }, lowerNotesFirst));
+					results.push_back(AssignChannelData(duty, { PULSE1, PULSE2, PULSE4 }, lowerNotesFirst));
+					results.push_back(AssignChannelData(duty, { PULSE1, PULSE2, PULSE3 }, lowerNotesFirst));
 				}
 				if (maxChannelCount >= 4) {
-					results.push_back(AssignChannelData(duty, { PULSE1, PULSE2, PULSE3, PULSE4 }));
+					results.push_back(AssignChannelData(duty, { PULSE1, PULSE2, PULSE3, PULSE4 }, lowerNotesFirst));
 				}
 			}
-			results.push_back(AssignChannelData(duty, { PULSE2 }));
-			results.push_back(AssignChannelData(duty, { PULSE1 }));
+			results.push_back(AssignChannelData(duty, { PULSE2 }, lowerNotesFirst));
+			results.push_back(AssignChannelData(duty, { PULSE1 }, lowerNotesFirst));
 			if (maxChannelCount >= 2) {
-				results.push_back(AssignChannelData(duty, { PULSE1, PULSE2 }));
+				results.push_back(AssignChannelData(duty, { PULSE1, PULSE2 }, lowerNotesFirst));
 			}
 		}
 
 		// cannot use triangle to play i.e. piano, because triangle does not decay
-		if (preset.isNonDecaying()) {
-			results.push_back(AssignChannelData(UNSPECIFIED, { TRIANGLE }));
+		if (nonDecaying) {
+			results.push_back(AssignChannelData(UNSPECIFIED, { TRIANGLE }, lowerNotesFirst));
 		}
 		if (USE_VRC6) {
-			results.push_back(AssignChannelData(UNSPECIFIED, { SAWTOOTH }));
+			results.push_back(AssignChannelData(UNSPECIFIED, { SAWTOOTH }, lowerNotesFirst));
 		}
 
 		return results;
 	}
 
-	static std::vector<AssignChannelData> getAssignConfigurations(Preset const& preset, int maxChannelCount) {
-		switch (preset.channel) {
+	static std::vector<AssignChannelData> getAssignConfigurations(Preset::Duty duty, Preset::Channel channel, bool nonDecaying, int maxChannelCount, bool lowerNotesFirst) {
+		switch (channel) {
 		case Preset::Channel::PULSE:
 		case Preset::Channel::TRIANGLE:
 		case Preset::Channel::SAWTOOTH:
-			return getMelodicAssignConfigurations(preset, maxChannelCount);
+			return getMelodicAssignConfigurations(duty, nonDecaying, maxChannelCount, lowerNotesFirst);
 		case Preset::Channel::NOISE:
-			return { AssignChannelData(preset.duty, { NesChannel::NOISE }) };
+			return { AssignChannelData(duty, { NesChannel::NOISE }, lowerNotesFirst) };
 		case Preset::Channel::DPCM:
-			return { AssignChannelData(preset.duty, { NesChannel::DPCM }) };
+			return { AssignChannelData(duty, { NesChannel::DPCM }, lowerNotesFirst) };
 		default:
 			return {};
 		}
+	}
+
+	const std::vector<AssignChannelData>& getAssignConfigurations(Preset const& preset, int maxChannelCount, bool lowerNotesFirst) const {
+		return assignConfigurationLookup[getAssignConfigurationId(preset.duty, preset.channel, preset.isNonDecaying(), maxChannelCount, lowerNotesFirst)];
 	}
 
 	AssignData tryUnassignSomeChannels(AssignData const& originalData, int depth, std::unordered_set<AssignData>& assigned, std::unordered_set<AssignData>& unassigned) const {
@@ -209,6 +222,10 @@ private:
 		depth--;
 
 		AssignData bestData = originalData;
+
+		if (AssignData newData = tryAssignSomeChannels(originalData, depth, assigned, unassigned); getScore(newData) > getScore(bestData)) {
+			bestData = newData;
+		}
 
 		for (int chan = 0; chan < MidiState::CHANNEL_COUNT; chan++) {
 			for (NesChannel nesChannel : originalData.getNesData(chan).nesChannels) {
@@ -238,6 +255,10 @@ private:
 
 		AssignData bestData = originalData;
 
+		if (AssignData newData = tryUnassignSomeChannels(originalData, depth, assigned, unassigned); getScore(newData) > getScore(bestData)) {
+			bestData = newData;
+		}
+
 		for (int chan = 0; chan < MidiState::CHANNEL_COUNT; chan++) {
 			if (midiData[chan].notes <= 0) {
 				continue;
@@ -248,7 +269,7 @@ private:
 				continue;
 			}
 
-			for (AssignChannelData const& configuration : getAssignConfigurations(preset.value(), int(midiData[chan].chords.size()))) {
+			for (AssignChannelData const& configuration : getAssignConfigurations(preset.value(), int(midiData[chan].chords.size()), false)) {
 				AssignData newData = originalData;
 				newData.assign(chan, configuration);
 
@@ -266,7 +287,35 @@ private:
 		return bestData;
 	}
 
+	static void initLookupsDeeper(Preset::Duty duty, Preset::Channel channel, bool nonDecaying) {
+		for (int maxChannelCount = 0; maxChannelCount <= 4; maxChannelCount++) {
+
+			for (int lowerNotesFirstI = 0; lowerNotesFirstI < 2; lowerNotesFirstI++) {
+				auto lowerNotesFirst = bool(lowerNotesFirstI);
+
+				assignConfigurationLookup[getAssignConfigurationId(duty, channel, nonDecaying, maxChannelCount, lowerNotesFirst)] =
+					getAssignConfigurations(duty, channel, nonDecaying, maxChannelCount, lowerNotesFirst);
+			}
+		}
+	}
+
 public:
+	static void initLookups() {
+		for (int dutyI = 0; dutyI < int(Preset::Duty::DUTY_COUNT); dutyI++) {
+			auto duty = Preset::Duty(dutyI);
+
+			for (int channelI = 0; channelI < int(Preset::Channel::CHANNEL_COUNT); channelI++) {
+				auto channel = Preset::Channel(channelI);
+
+				for (int nonDecayingI = 0; nonDecayingI < 2; nonDecayingI++) {
+					auto nonDecaying = bool(nonDecayingI);
+
+					initLookupsDeeper(duty, channel, nonDecaying);
+				}
+			}
+		}
+	}
+
 	explicit AssignDataGenerator(MidiState const& midiState, int eventIndex, InstrumentBase* instrumentBase) :
 		originMidiState(midiState), eventIndex(eventIndex), instrumentBase(instrumentBase) {}
 

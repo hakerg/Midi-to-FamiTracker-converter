@@ -5,6 +5,33 @@
 #include "FamiTrackerFile.h"
 #include "Converter.h"
 
+std::array<std::vector<AssignChannelData>, 2048> AssignDataGenerator::assignConfigurationLookup;
+
+void processFile(int i, int argc, char* arg) {
+	std::filesystem::path midiFile = arg;
+	std::filesystem::path txtFile = midiFile;
+	txtFile.replace_extension("txt");
+
+	std::wcout << i << "/" << (argc - 1) << " Converting " << midiFile << std::endl;
+
+	HSTREAM handle = BASS_MIDI_StreamCreateFile(false, midiFile.c_str(), 0, 0, BASS_UNICODE, 44100);
+	if (handle == 0) {
+		std::cout << "BASS_MIDI_StreamCreateFile error, code " << BASS_ErrorGetCode() << std::endl;
+		return;
+	}
+
+	FamiTrackerFile file = std::make_unique<Converter>()->convert(handle);
+	BASS_StreamFree(handle);
+
+	std::wstring title = midiFile.stem().wstring();
+	if (title.length() > 31) {
+		title = title.substr(0, 31); // apparently there is a char limit in the title
+	}
+	file.title = file.tracks[0]->name = title;
+	file.exportTxt(txtFile);
+	std::cout << "Successfully exported to " << txtFile << std::endl << std::endl;
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cout << "Usage: MidiToFamiTrackerConverter <midi_file_1> <midi_file_2> ..." << std::endl;
@@ -16,30 +43,19 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+	AssignDataGenerator::initLookups();
+
+	std::vector<std::jthread> threads;
+
     for (int i = 1; i < argc; i++) {
-        std::filesystem::path midiFile = argv[i];
-        std::filesystem::path txtFile = midiFile;
-        txtFile.replace_extension("txt");
-
-        std::wcout << i << "/" << (argc - 1) << " Converting " << midiFile << std::endl;
-
-        HSTREAM handle = BASS_MIDI_StreamCreateFile(false, midiFile.c_str(), 0, 0, BASS_UNICODE, 44100);
-        if (handle == 0) {
-            std::cout << "BASS_MIDI_StreamCreateFile error, code " << BASS_ErrorGetCode() << std::endl;
-            return 3;
-        }
-
-        FamiTrackerFile file = std::make_unique<Converter>()->convert(handle);
-        BASS_StreamFree(handle);
-
-        std::wstring title = midiFile.stem().wstring();
-        if (title.length() > 31) {
-            title = title.substr(0, 31); // apparently there is a char limit in the title
-        }
-        file.title = file.tracks[0]->name = title;
-        file.exportTxt(txtFile);
-        std::cout << "Successfully exported to " << txtFile << std::endl << std::endl;
+		threads.emplace_back(&processFile, i, argc, argv[i]);
     }
+
+	for (auto& t : threads) {
+		if (t.joinable()) {
+			t.join();
+		}
+	}
 
     return 0;
 }

@@ -9,9 +9,10 @@ public:
 	NesChannel nesChannel;
 	Preset::Duty duty;
 	Preset preset;
+	bool lowerNotesFirst;
 
-	NoteTriggerData(NesChannel nesChannel, Preset::Duty duty, Preset const& preset) :
-		nesChannel(nesChannel), duty(duty), preset(preset) {}
+	NoteTriggerData(NesChannel nesChannel, Preset::Duty duty, Preset const& preset, bool lowerNotesFirst) :
+		nesChannel(nesChannel), duty(duty), preset(preset), lowerNotesFirst(lowerNotesFirst) {}
 
 	std::optional<NesDuty> getNesDuty() const {
 		switch (duty) {

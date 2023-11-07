@@ -15,6 +15,7 @@
 #include <numeric>
 #include <bitset>
 #include <functional>
+#include <thread>
 
 #include "bass.h"
 #include "bassmidi.h"

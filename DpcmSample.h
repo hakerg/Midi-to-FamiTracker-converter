@@ -5,7 +5,7 @@ class DpcmSample {
 public:
 	int id;
 	std::wstring name;
-	std::vector<uint8_t> data;
+	std::vector<uint8_t> data{};
 
 	DpcmSample(int id, std::wstring const& name, std::vector<uint8_t> const& data) : id(id), name(name), data(data) {}
 

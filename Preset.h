@@ -5,8 +5,8 @@
 
 class Preset {
 public:
-	enum class Channel { PULSE, TRIANGLE, NOISE, DPCM, SAWTOOTH };
-	enum class Duty { UNSPECIFIED, PULSE_12, PULSE_25, PULSE_50, NOISE_NORMAL, NOISE_LOOP };
+	enum class Channel { PULSE, TRIANGLE, NOISE, DPCM, SAWTOOTH, CHANNEL_COUNT };
+	enum class Duty { UNSPECIFIED, PULSE_12, PULSE_25, PULSE_50, NOISE_NORMAL, NOISE_LOOP, DUTY_COUNT };
 
 	enum class Order {
 		MELODIC,
