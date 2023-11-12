@@ -29,7 +29,7 @@ public:
 	int notes{};
 
 	// how many notes unplayable by specific nes channels
-	std::array<int, Pattern::CHANNELS> notesOutOfRange{};
+	std::array<int, int(NesChannel::CHANNEL_COUNT)> notesOutOfRange{};
 
 	// sum of note volumes
 	double volumeSum{};
@@ -42,13 +42,13 @@ public:
 
 
 	// how many notes can be played per assigned channel count
-	std::array<int, 4> playedNotes{};
+	std::array<int, 5> playedNotes{};
 
 	// chord score per assigned channel count
-	std::array<double, 4> chordScoreMultiplier{};
+	std::array<double, 5> chordScoreMultiplier{};
 
 	void calculate() {
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < playedNotes.size(); i++) {
 			playedNotes[i] = countPlayedNotes(i);
 			chordScoreMultiplier[i] = countChordScoreMultiplier(i);
 		}
@@ -58,7 +58,8 @@ public:
 		return playedNotes[assignedChannelCount] / double(notes);
 	}
 
-	double getPlayedNotesRatioPerAssignedChannel(int assignedChannelCount) const {
+	double getPlayedNotesRatioPerAssignedChannel(std::bitset<int(NesChannel::CHANNEL_COUNT)> const& nesChannels) const {
+		auto assignedChannelCount = int(nesChannels.count());
 		return playedNotes[assignedChannelCount] / (double(notes) * assignedChannelCount);
 	}
 
@@ -70,7 +71,7 @@ public:
 		}
 
 		notes++;
-		for (int i = 0; i < Pattern::CHANNELS; i++) {
+		for (int i = 0; i < notesOutOfRange.size(); i++) {
 			if (!Note::isInPlayableRange(NesChannel(i), event.key)) {
 				notesOutOfRange[i]++;
 			}
@@ -88,9 +89,7 @@ public:
 				continue;
 			}
 
-			for (auto const& [key2, _] : channelState2.noteVelocities) {
-				interruptingNotes[chan2]++;
-			}
+			interruptingNotes[chan2] += int(channelState2.noteVelocities.size());
 		}
 	}
 

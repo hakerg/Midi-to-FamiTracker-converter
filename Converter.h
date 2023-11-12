@@ -6,14 +6,16 @@
 #include "NesState.h"
 #include "PitchCalculator.h"
 #include "MidiEventParser.h"
+#include "NesHeightVolumeController.h"
 
 class Converter {
 private:
     static constexpr int ROWS_PER_PATTERN = 256;
     static constexpr double MAX_DETUNE_SEMITONES = 0.2;
-    static constexpr bool ADJUST_SPEED = true;
+	static constexpr bool ADJUST_SPEED = true;
+	static constexpr bool MERGE_EMPTY_ROWS = true;
 
-    std::array<double, Pattern::CHANNELS> nesVolumeFactor = { 0.6, 0.6, 1.0, 0.8, 1.0, 0.6, 0.6, 0.6 };
+    std::array<double, int(NesChannel::CHANNEL_COUNT)> nesVolumeFactor = { 0.6, 0.6, 1.0, 0.8, 1.0, 0.6, 0.6, 0.6 };
 
     InstrumentSelector instrumentSelector;
     FamiTrackerFile file;
@@ -27,33 +29,43 @@ private:
             track->addPatternAndOrder();
         }
         return track->patterns[pattern];
-    }
+	}
 
-    Cell* getPreviousCell(NesChannel channel, int rows) {
-        int row = nesState.getRow() - rows;
-        return row < 0 ? nullptr : &(getPattern(row / ROWS_PER_PATTERN)->getCell(channel, row % ROWS_PER_PATTERN));
+	Cell& getCell(NesChannel channel, int row) {
+		return getPattern(row / ROWS_PER_PATTERN)->getCell(channel, row % ROWS_PER_PATTERN);
+	}
+
+    Cell* getPreviousCellOrNull(NesChannel channel, int rowsBack) {
+        int row = nesState.getRow() - rowsBack;
+        return row < 0 ? nullptr : &(getCell(channel, row));
     }
 
     Cell& getCurrentCell(NesChannel channel) {
-        int row = nesState.getRow();
-		return getPattern(row / ROWS_PER_PATTERN)->getCell(channel, row % ROWS_PER_PATTERN);
+        return getCell(channel, nesState.getRow());
     }
 
-    void stopNote(NesChannel nesChannel, Cell::Type stopType) {
+	void stopNote(NesChannel nesChannel, Cell::Type stopType) {
+		std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
+
 		// ignore if already stopped
         if (stopType == Cell::Type::RELEASE) {
-            std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
             if (!note || !note->playing || !note->triggerData.preset.needRelease) { // the last condition causes that note has playing=true after release, but that's fine
                 return;
-            }
+			}
+			nesState.releaseNote(nesChannel);
+        }
+        else if (stopType == Cell::Type::STOP) {
+            if (!note) {
+                return;
+			}
+			nesState.killNote(nesChannel);
         }
 
         getCurrentCell(nesChannel).type = stopType;
-        nesState.resetNote(nesChannel);
     }
 
     void stopNote(int chan, int key, Cell::Type stopType) {
-        for (int i = 0; i < Pattern::CHANNELS; i++) {
+        for (int i = 0; i < int(NesChannel::CHANNEL_COUNT); i++) {
             auto nesChannel = NesChannel(i);
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
             if (note && note->event.chan == chan && note->event.key == key) {
@@ -63,18 +75,13 @@ private:
     }
 
     void stopAllNotes(int chan, Cell::Type stopType) {
-        for (int i = 0; i < Pattern::CHANNELS; i++) {
+        for (int i = 0; i < int(NesChannel::CHANNEL_COUNT); i++) {
             auto nesChannel = NesChannel(i);
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
             if (note && note->event.chan == chan) {
                 stopNote(nesChannel, stopType);
             }
         }
-    }
-
-    Note getNesNote(NesChannel nesChannel, int midiKey) {
-        // triangle needs to be played octave higher to sound better
-        return Note(nesChannel == NesChannel::TRIANGLE ? midiKey + 12 : midiKey, nesChannel != NesChannel::NOISE);
     }
 
     void midiNoteOn(MidiEvent const& event, int eventIndex) {
@@ -85,11 +92,10 @@ private:
             nesState.setNote(data.nesChannel, PlayingNesNote(event, nesState.seconds, data, canInterruptSeconds));
 
             Cell& currentCell = getCurrentCell(data.nesChannel);
-            currentCell.Note(data.preset.note ? data.preset.note.value() : getNesNote(data.nesChannel, event.key), data.preset.instrument);
+            currentCell.Note(data.preset.note ? data.preset.note.value() : Note(data.nesChannel, event.key), data.preset.instrument);
 
             // optional was set above, so shouldn't be empty
-            setNesPitch(event.chan, data.nesChannel, nesState.getNote(data.nesChannel).value());
-            setNesVolume(event.chan, data.nesChannel, event.velocity);
+            setNesPitchAndVolume(event.chan, data.nesChannel, nesState.getNote(data.nesChannel).value());
 
             // set duty if requested
             if (std::optional<NesDuty> duty = data.getNesDuty(); duty) {
@@ -101,9 +107,9 @@ private:
             }
 
             // mute previous tick to clearly hear the note
-            Cell* previousCell = getPreviousCell(data.nesChannel, 1);
+            Cell* previousCell = getPreviousCellOrNull(data.nesChannel, 1);
             if (previousCell && (previousCell->type == Cell::Type::EMPTY || previousCell->type == Cell::Type::RELEASE)) {
-                Cell* previousCell2 = getPreviousCell(data.nesChannel, 2);
+                Cell* previousCell2 = getPreviousCellOrNull(data.nesChannel, 2);
                 if (previousCell2 && (previousCell2->type == Cell::Type::EMPTY || previousCell2->type == Cell::Type::RELEASE)) {
                     previousCell->volume = 0;
                 }
@@ -138,13 +144,16 @@ private:
         return resultPeriod;
     }
 
-    void setNesPitch(int midiChan, NesChannel nesChannel, PlayingNesNote& note) {
-        // ignore for noise and DPCM
+	void setNesPitchAndVolume(int midiChan, NesChannel nesChannel, PlayingNesNote& note) {
+        // set volume
+		double targetKey = midiState.getChannel(midiChan).getPitchedKey(note.event.key);
+		setNesVolume(midiChan, nesChannel, note.event.velocity, targetKey);
+
+        // ignore pitch for noise and DPCM
         if (nesChannel == NesChannel::NOISE || nesChannel == NesChannel::DPCM) {
             return;
         }
 
-        double targetKey = midiState.getChannel(midiChan).getPitchedKey(note.event.key);
         int targetPeriod = getDetunedPeriod(nesChannel, targetKey);
 
         double basePeriod = PitchCalculator::calculatePeriodByKey(nesChannel, note.keyAfterPitch);
@@ -165,9 +174,9 @@ private:
                     return;
                 }
 
-                getCurrentCell(nesChannel).Note(getNesNote(nesChannel, key), note.triggerData.preset.instrument);
+                getCurrentCell(nesChannel).Note(Note(nesChannel, key), note.triggerData.preset.instrument);
                 note.keyAfterPitch = key;
-                setNesPitch(midiChan, nesChannel, note);
+                setNesPitchAndVolume(midiChan, nesChannel, note);
             }
             else {
                 stopNote(nesChannel, Cell::Type::STOP);
@@ -176,31 +185,34 @@ private:
     }
 
     void updateNesPitch(int midiChan) {
-        for (int i = 0; i < Pattern::CHANNELS; i++) {
+        for (int i = 0; i < int(NesChannel::CHANNEL_COUNT); i++) {
             auto nesChannel = NesChannel(i);
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
             if (note && note->event.chan == midiChan) {
-                setNesPitch(midiChan, nesChannel, note.value());
+                setNesPitchAndVolume(midiChan, nesChannel, note.value());
             }
         }
     }
 
-    void setNesVolume(int midiChan, NesChannel nesChannel, int velocity) {
+    void setNesVolume(int midiChan, NesChannel nesChannel, int velocity, double key) {
         // FamiTracker does not import volume for DPCM channel
         if (nesChannel == NesChannel::DPCM) {
             return;
         }
 
-        double volumeF = midiState.getChannel(midiChan).getNoteVolume(velocity) * nesVolumeFactor[int(nesChannel)] / 8.0;
+        // ignore NesHeightVolumeController for noise
+        double heightVolumeMultiplier = (nesChannel == NesChannel::NOISE ? 1 : NesHeightVolumeController::getHeightVolumeMultiplier(key));
+
+        double volumeF = midiState.getChannel(midiChan).getNoteVolume(velocity) * nesVolumeFactor[int(nesChannel)] * heightVolumeMultiplier / 8.0;
         getCurrentCell(nesChannel).volume = min(15, int(ceil(volumeF)));
     }
 
     void updateNesVolume(int midiChan) {
-        for (int i = 0; i < Pattern::CHANNELS; i++) {
+        for (int i = 0; i < int(NesChannel::CHANNEL_COUNT); i++) {
             auto nesChannel = NesChannel(i);
             std::optional<PlayingNesNote>& note = nesState.getNote(nesChannel);
             if (note && note->event.chan == midiChan) {
-                setNesVolume(midiChan, nesChannel, note->event.velocity);
+                setNesVolume(midiChan, nesChannel, note->event.velocity, midiState.getChannel(midiChan).getPitchedKey(note->event.key));
             }
         }
     }
@@ -218,9 +230,17 @@ private:
     }
 
     void processEvents(HSTREAM handle, std::vector<MidiEvent> const& events) {
+        int prevRow = nesState.getRow();
         for (int i = 0; i < events.size(); i++) {
 			MidiEvent const& event = events[i];
             nesState.seconds = event.seconds;
+
+            int newRow = nesState.getRow() - 2; // decremented because of muting previous row on note
+			if (MERGE_EMPTY_ROWS) {
+				mergeEmptyRows(prevRow, newRow, file.minTempo - 1);
+            }
+            prevRow = nesState.getRow();
+
             midiState.processEvent(event);
 
             switch (event.event) {
@@ -252,7 +272,6 @@ private:
             case MIDI_EVENT_NOTESOFF:
                 stopAllNotes(event.chan, Cell::Type::RELEASE);
                 break;
-            // TODO: vibrato, portamento, arpeggio
 
             case MIDI_EVENT_SYSTEM:
             case MIDI_EVENT_SYSTEMEX:
@@ -338,14 +357,28 @@ private:
         }
     }
 
+    void mergeEmptyRows(int startRow, int endRow, int maxCount) {
+		int totalRowCount = endRow - startRow;
+        if (totalRowCount <= 1) {
+            return;
+        }
+
+        int toMerge = min(totalRowCount, maxCount);
+        int rowShift = 1 - toMerge;
+
+        getCell(NesChannel::DPCM, startRow).SpeedOrTempo(toMerge);
+        getCell(NesChannel::DPCM, startRow + 1).SpeedOrTempo(1);
+        nesState.rowShift += rowShift;
+
+        if (totalRowCount > toMerge) {
+            mergeEmptyRows(startRow + 1, endRow + rowShift, maxCount);
+        }
+    }
+
 public:
     FamiTrackerFile convert(HSTREAM handle) {
         std::vector<MidiEvent> events = MidiEventParser::getEvents(handle);
         double songLength = (events.empty() ? 0 : events.back().seconds);
-        int speedDivider = getSpeedDivider(songLength);
-		nesState.rowsPerSecond /= speedDivider;
-
-        std::cout << "Scrolling speed: " << nesState.rowsPerSecond << " rows per second" << std::endl;
 
         // slightly adjusts playing speed to make distances between notes even
         if (ADJUST_SPEED) {
@@ -356,7 +389,7 @@ public:
 
         file.comment = L"Created using MidiToFamiTrackerConverter by hakerg";
         track = file.addTrack(ROWS_PER_PATTERN);
-        track->speed = speedDivider;
+        track->speed = 1;
         track->tempo = 150;
 
         resetMidi();

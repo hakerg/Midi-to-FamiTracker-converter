@@ -4,9 +4,10 @@
 
 class NesState {
 public:
-    std::array<std::optional<PlayingNesNote>, Pattern::CHANNELS> channels;
+    std::array<std::optional<PlayingNesNote>, int(NesChannel::CHANNEL_COUNT)> channels;
     double seconds = 0;
     double rowsPerSecond;
+    int rowShift = 0;
 
     explicit NesState(double rowsPerSecond) : rowsPerSecond(rowsPerSecond) {}
 
@@ -22,10 +23,14 @@ public:
         getNote(channel) = note;
     }
 
-    void resetNote(NesChannel channel) {
+    void releaseNote(NesChannel channel) {
         if (getNote(channel)) {
-            getNote(channel)->stop();
+            getNote(channel)->release();
         }
+    }
+
+    void killNote(NesChannel channel) {
+        getNote(channel).reset();
     }
 
     int getRow() const {
@@ -33,7 +38,7 @@ public:
     }
 
     int getRow(double seconds_) const {
-        return int(round(seconds_ * rowsPerSecond));
+        return int(round(seconds_ * rowsPerSecond)) + rowShift;
     }
 
     double getSeconds(int row) const {
@@ -51,7 +56,7 @@ public:
             return 0;
         }
         int count = 0;
-        for (int i = 0; i < Pattern::CHANNELS; i++) {
+        for (int i = 0; i < int(NesChannel::CHANNEL_COUNT); i++) {
             auto nesChannel = NesChannel(i);
             if (nesChannel == ignoreNesChannel || !isPulse(nesChannel)) {
                 continue;
@@ -77,7 +82,7 @@ public:
             return 0;
         }
         int count = 0;
-        for (int i = 0; i < Pattern::CHANNELS; i++) {
+        for (int i = 0; i < int(NesChannel::CHANNEL_COUNT); i++) {
             auto nesChannel = NesChannel(i);
             if (nesChannel == ignoreNesChannel || ignoreToneOverlap(nesChannel)) {
                 continue;

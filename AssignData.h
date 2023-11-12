@@ -8,7 +8,6 @@ class AssignData {
 public:
 	int eventIndex;
 	std::array<AssignChannelData, MidiState::CHANNEL_COUNT> nesData;
-	std::optional<double> score;
 
 	explicit AssignData(int eventIndex) : eventIndex(eventIndex) {}
 
@@ -20,14 +19,22 @@ public:
 		return getNesData(midiChannel).isAssigned(nesChannel);
 	}
 
-	void assign(int midiChannel, AssignChannelData const& data) {
-		nesData[midiChannel] = data;
-		score.reset();
+	AssignData assign(int midiChannel, AssignChannelData const& data) const {
+		AssignData ret = *this;
+		ret.nesData[midiChannel] = data;
+		return ret;
 	}
 
-	void unassign(int midiChannel, NesChannel nesChannel) {
-		nesData[midiChannel].nesChannels.erase(nesChannel);
-		score.reset();
+	AssignData unassign(int midiChannel, NesChannel nesChannel) const {
+		AssignData ret = *this;
+		ret.nesData[midiChannel].nesChannels.reset(int(nesChannel));
+		return ret;
+	}
+
+	AssignData setDuty(int midiChannel, Preset::Duty duty) const {
+		AssignData ret = *this;
+		ret.nesData[midiChannel].duty = duty;
+		return ret;
 	}
 
 	bool operator == (const AssignData& other) const {

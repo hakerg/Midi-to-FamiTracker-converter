@@ -122,9 +122,6 @@
     <ClInclude Include="AssignChannelData.h">
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
-    <ClInclude Include="NesChannelSet.h">
-      <Filter>Pliki nagłówkowe\Conversion</Filter>
-    </ClInclude>
     <ClInclude Include="MidiEvent.h">
       <Filter>Pliki nagłówkowe\Midi</Filter>
     </ClInclude>
@@ -132,6 +129,9 @@
       <Filter>Pliki nagłówkowe\Midi</Filter>
     </ClInclude>
     <ClInclude Include="MidiChannelNotesData.h">
+      <Filter>Pliki nagłówkowe\Conversion</Filter>
+    </ClInclude>
+    <ClInclude Include="NesHeightVolumeController.h">
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
   </ItemGroup>

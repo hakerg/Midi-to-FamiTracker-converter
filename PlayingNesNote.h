@@ -17,8 +17,8 @@ public:
     PlayingNesNote(MidiEvent const& event, double startSeconds, NoteTriggerData const& triggerData, double canInterruptSeconds) :
         event(event), keyAfterPitch(event.key), frequencyAfterPitch(PitchCalculator::calculateFrequencyByKey(event.key)),
         triggerData(triggerData), canInterruptSeconds(canInterruptSeconds) {}
-    
-    void stop() {
+
+    void release() {
         playing = false;
     }
 };

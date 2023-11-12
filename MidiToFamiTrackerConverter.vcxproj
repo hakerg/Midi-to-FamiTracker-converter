@@ -158,7 +158,7 @@
     <ClInclude Include="MidiEvent.h" />
     <ClInclude Include="MidiEventParser.h" />
     <ClInclude Include="MidiState.h" />
-    <ClInclude Include="NesChannelSet.h" />
+    <ClInclude Include="NesHeightVolumeController.h" />
     <ClInclude Include="NesState.h" />
     <ClInclude Include="Note.h" />
     <ClInclude Include="NoteTriggerData.h" />

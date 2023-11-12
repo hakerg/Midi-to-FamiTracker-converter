@@ -36,7 +36,7 @@ private:
 			}
 
 			KeyDpcmSample sample = instrument->dpcmSamples[bestIndex];
-			sample.note = Note(key);
+			sample.note = Note(NesChannel::DPCM, key);
 			sample.pitch = bestPitch;
 			instrument->dpcmSamples.push_back(sample);
 		}
@@ -68,23 +68,32 @@ private:
 			// fill higher by looping octaves
 			for (int i = highestKey + 1; i <= Note::MAX_KEY; i++) {
 				KeyDpcmSample sample = findSample(instrument->dpcmSamples, i - 12);
-				sample.note = Note(i);
+				sample.note = Note(NesChannel::DPCM, i);
 				instrument->dpcmSamples.push_back(sample);
 			}
 		}
 
 		void fillTimpani() {
-			int firstKey = Note(0, Tone::A_).key;
+			int firstKey = Note(NesChannel::DPCM, 0, Tone::A_).key;
 			for (int i = 0; i < samples.timpaniA_1.size(); i++) {
-				timpani->dpcmSamples.emplace_back(Note(firstKey + i, true), samples.timpaniA_1[i]);
+				timpani->dpcmSamples.emplace_back(Note(NesChannel::DPCM, firstKey + i), samples.timpaniA_1[i]);
 			}
 
 			fillSamplesByLoweringPitch(timpani, 1);
 		}
 
+		void fillHit() {
+			int firstKey = Note(NesChannel::DPCM, 3, Tone::C_).key;
+			for (int i = 0; i < samples.hitC_5.size(); i++) {
+				hit->dpcmSamples.emplace_back(Note(NesChannel::DPCM, firstKey + i), samples.hitC_5[i]);
+			}
+
+			fillSamplesByLoweringPitch(hit, 1);
+		}
+
 		std::shared_ptr<Instrument> createSingleSampleInstrument(FamiTrackerFile& file, const std::wstring& name, std::shared_ptr<DpcmSample> sample, double scaleTuning) {
 			std::shared_ptr<Instrument> instrument = file.addInstrument(name);
-			instrument->dpcmSamples.emplace_back(Note(60), sample);
+			instrument->dpcmSamples.emplace_back(Note(NesChannel::DPCM, 60), sample);
 			fillSamplesByLoweringPitch(instrument, scaleTuning);
 			return instrument;
 		}
@@ -103,14 +112,15 @@ private:
 		std::shared_ptr<Instrument> orchestraDrums;
 
 		void createInstruments(FamiTrackerFile& file) {
-			hit = createSingleSampleInstrument(file, L"Orchestra hit", samples.hit, 0);
 			synthDrum = createSingleSampleInstrument(file, L"Synth drum", samples.synthDrum, 0.5);
 			melodicTom = createSingleSampleInstrument(file, L"Melodic tom", samples.tom, 0.5);
 			woodblock = createSingleSampleInstrument(file, L"Woodblock", samples.stick, 0.5);
 			taiko = createSingleSampleInstrument(file, L"Taiko", samples.taiko, 0.5);
 
 			timpani = file.addInstrument(L"Timpani");
+			hit = file.addInstrument(L"Orchestra hit");
 			fillTimpani();
+			fillHit();
 
 			standardDrums = file.addInstrument(L"Standard drums");
 			electronicDrums = file.addInstrument(L"Electronic drums");
@@ -218,9 +228,9 @@ private:
 		gm[18] = { Preset(PULSE, attack, true, PULSE_25) };
 		gm[19] = { Preset(PULSE, attack, true, PULSE_25) };
 		gm[20] = { Preset(PULSE, attack, true, PULSE_25) };
-		gm[21] = { Preset(PULSE, attack, true, PULSE_25) };
-		gm[22] = { Preset(PULSE, attack, true, PULSE_25) };
-		gm[23] = { Preset(PULSE, attack, true, PULSE_25) };
+		gm[21] = { Preset(PULSE, attack, true, PULSE_12) };
+		gm[22] = { Preset(PULSE, attack, true, PULSE_12) };
+		gm[23] = { Preset(PULSE, attack, true, PULSE_12) };
 
 		// guitar
 		gm[24] = { Preset(PULSE, pianoCut, true, PULSE_25) };
@@ -334,13 +344,13 @@ private:
 
 		// percussive
 		gm[112] = { Preset(PULSE, longDecayCut, false, PULSE_50) };
-		gm[113] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::AGOGO, Note(12)) };
+		gm[113] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::AGOGO, NoiseNote(12)) };
 		gm[114] = { Preset(PULSE, longDecayCut, false, PULSE_50) };
 		gm[115] = { Preset(DPCM, dpcm.woodblock, false, UNSPECIFIED, Preset::Order::STICK, {}) };
 		gm[116] = { Preset(DPCM, dpcm.taiko, false, UNSPECIFIED, Preset::Order::TAIKO, {}) };
 		gm[117] = { Preset(DPCM, dpcm.melodicTom, false, UNSPECIFIED, Preset::Order::TOM, {}) };
 		gm[118] = { Preset(DPCM, dpcm.synthDrum, false, UNSPECIFIED, Preset::Order::TOM, {}) };
-		gm[119] = { Preset(NOISE, reverseCymbal, true, NOISE_NORMAL, Preset::Order::REVERSE_CYMBAL, Note(10)) };
+		gm[119] = { Preset(NOISE, reverseCymbal, true, NOISE_NORMAL, Preset::Order::REVERSE_CYMBAL, NoiseNote(10)) };
 
 		// sound effects
 		gm[120] = {};
@@ -350,32 +360,32 @@ private:
 		gm[124] = {};
 		gm[125] = {};
 		gm[126] = {};
-		gm[127] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::GUN, Note(1), 5) };
+		gm[127] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::GUN, NoiseNote(1), 5) };
 
 
 
 		// drums
-		drums[0][35] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::KICK_FILL, Note(12)) }; // kick
-		drums[0][36] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::KICK_FILL, Note(12)) }; // kick
-		drums[0][38] = { Preset(NOISE, snare, false, NOISE_NORMAL, Preset::Order::SNARE_FILL, Note(12)) }; // snare
-		drums[0][39] = { Preset(NOISE, clap, false, UNSPECIFIED, Preset::Order::CLAP, Note(8)) }; // clap
-		drums[0][40] = { Preset(NOISE, snare, false, NOISE_NORMAL, Preset::Order::SNARE_FILL, Note(12)) }; // snare
-		drums[0][42] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::HI_HAT, Note(12)) }; // hi-hat
-		drums[0][44] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::HI_HAT, Note(12)) }; // hi-hat
-		drums[0][46] = { Preset(NOISE, openHat, false, NOISE_NORMAL, Preset::Order::OPEN_HI_HAT, Note(9)) }; // open hi-hat
-		drums[0][49] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH1, Note(9), 15) }; // crash 1
-		drums[0][51] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, Note(9)) }; // ride cymbal 1
-		drums[0][52] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CHINESE_CYMBAL, Note(6), 15) }; // chinese cymbal
-		drums[0][53] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, Note(9)) }; // ride bell
-		drums[0][54] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::TAMBOURINE, Note(14)) }; // tambourine
-		drums[0][55] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::SPLASH, Note(13), 15) }; // splash
-		drums[0][56] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, Note(9)) }; // cowbell
-		drums[0][57] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH2, Note(10), 15) }; // crash 2
-		drums[0][59] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, Note(9)) }; // ride cymbal 2
-		drums[0][67] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::AGOGO, Note(12)) }; // high agogo
-		drums[0][68] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::AGOGO, Note(11)) }; // low agogo
-		drums[0][80] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::TRIANGLE, Note(15)) }; // triangle closed
-		drums[0][81] = { Preset(NOISE, decay, false, NOISE_LOOP, Preset::Order::TRIANGLE, Note(15)) }; // triangle open
+		drums[0][35] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::KICK_FILL, NoiseNote(12)) }; // kick
+		drums[0][36] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::KICK_FILL, NoiseNote(12)) }; // kick
+		drums[0][38] = { Preset(NOISE, snare, false, NOISE_NORMAL, Preset::Order::SNARE_FILL, NoiseNote(12)) }; // snare
+		drums[0][39] = { Preset(NOISE, clap, false, UNSPECIFIED, Preset::Order::CLAP, NoiseNote(8)) }; // clap
+		drums[0][40] = { Preset(NOISE, snare, false, NOISE_NORMAL, Preset::Order::SNARE_FILL, NoiseNote(12)) }; // snare
+		drums[0][42] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::HI_HAT, NoiseNote(12)) }; // hi-hat
+		drums[0][44] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::HI_HAT, NoiseNote(12)) }; // hi-hat
+		drums[0][46] = { Preset(NOISE, openHat, false, NOISE_NORMAL, Preset::Order::OPEN_HI_HAT, NoiseNote(9)) }; // open hi-hat
+		drums[0][49] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(9), 15) }; // crash 1
+		drums[0][51] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride cymbal 1
+		drums[0][52] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(6), 15) }; // chinese cymbal
+		drums[0][53] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride bell
+		drums[0][54] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::TAMBOURINE, NoiseNote(14)) }; // tambourine
+		drums[0][55] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::SPLASH, NoiseNote(13), 15) }; // splash
+		drums[0][56] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // cowbell
+		drums[0][57] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(10), 15) }; // crash 2
+		drums[0][59] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride cymbal 2
+		drums[0][67] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::AGOGO, NoiseNote(12)) }; // high agogo
+		drums[0][68] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::AGOGO, NoiseNote(11)) }; // low agogo
+		drums[0][80] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::TRIANGLE, NoiseNote(15)) }; // triangle closed
+		drums[0][81] = { Preset(NOISE, decay, false, NOISE_LOOP, Preset::Order::TRIANGLE, NoiseNote(15)) }; // triangle open
 		bindDrumSample(dpcm.samples.kick, dpcm.standardDrums, false, 0, 35, Preset::Order::KICK, 15);
 		bindDrumSample(dpcm.samples.kick, dpcm.standardDrums, false, 0, 36, Preset::Order::KICK, 15);
 		bindDrumSample(dpcm.samples.stick, dpcm.standardDrums, false, 0, 37, Preset::Order::STICK, 15);
@@ -394,14 +404,14 @@ private:
 
 		// hard drums
 		drums[16] = drums[0];
-		drums[16][38] = { Preset(NOISE, hardSnare, false, NOISE_NORMAL, Preset::Order::SNARE, Note(6), 5) }; // snare
-		drums[16][40] = { Preset(NOISE, hardSnare, false, NOISE_NORMAL, Preset::Order::SNARE, Note(6), 5) }; // snare
-		drums[16][41] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, Note(2), 5) }; // tom
-		drums[16][43] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, Note(3), 5) }; // tom
-		drums[16][45] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, Note(4), 5) }; // tom
-		drums[16][47] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, Note(5), 5) }; // tom
-		drums[16][48] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, Note(6), 5) }; // tom
-		drums[16][50] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, Note(7), 5) }; // tom
+		drums[16][38] = { Preset(NOISE, hardSnare, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(6), 5) }; // snare
+		drums[16][40] = { Preset(NOISE, hardSnare, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(6), 5) }; // snare
+		drums[16][41] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(2), 5) }; // tom
+		drums[16][43] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(3), 5) }; // tom
+		drums[16][45] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(4), 5) }; // tom
+		drums[16][47] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(5), 5) }; // tom
+		drums[16][48] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(6), 5) }; // tom
+		drums[16][50] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(7), 5) }; // tom
 
 		// electronic drums
 		drums[24] = drums[16];
@@ -422,7 +432,7 @@ private:
 
 		// analog drums
 		drums[25] = drums[0];
-		drums[25][46] = { Preset(NOISE, analogOpenHat, false, NOISE_NORMAL, Preset::Order::OPEN_HI_HAT, Note(12)) }; // open hi-hat
+		drums[25][46] = { Preset(NOISE, analogOpenHat, false, NOISE_NORMAL, Preset::Order::OPEN_HI_HAT, NoiseNote(12)) }; // open hi-hat
 		bindDrumSample(dpcm.samples.analogKick, dpcm.analogDrums, false, 25, 35, Preset::Order::KICK, 15);
 		bindDrumSample(dpcm.samples.analogKick, dpcm.analogDrums, false, 25, 36, Preset::Order::KICK, 15);
 		bindDrumSample(dpcm.samples.analogSnare, dpcm.analogDrums, false, 25, 38, Preset::Order::SNARE, 15);
@@ -433,14 +443,14 @@ private:
 
 		// orchestra
 		drums[48] = drums[0];
-		drums[48][38] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::SNARE, Note(9)) }; // snare
-		drums[48][40] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::SNARE, Note(9)) }; // snare
-		drums[48][59] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH1, Note(9), 15) }; // crash 1
-		bindDrumSample(dpcm.samples.orchestraKick, dpcm.orchestraDrums, false, 48, 35, Preset::Order::KICK, 15);
-		bindDrumSample(dpcm.samples.orchestraKick, dpcm.orchestraDrums, false, 48, 36, Preset::Order::KICK, 15);
+		drums[48][38] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(9)) }; // snare
+		drums[48][40] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(9)) }; // snare
+		drums[48][59] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(9), 15) }; // crash 1
 		bindDrumSample(dpcm.samples.stick, dpcm.orchestraDrums, false, 48, 39, Preset::Order::STICK, 15);
+		drums[48][35] = { Preset(DPCM, dpcm.timpani, false, UNSPECIFIED, Preset::Order::KICK, Note(NesChannel::DPCM, 35)) };
+		drums[48][36] = { Preset(DPCM, dpcm.timpani, false, UNSPECIFIED, Preset::Order::KICK, Note(NesChannel::DPCM, 36)) };
 		for (int key = 41; key <= 53; key++) {
-			drums[48][key] = { Preset(DPCM, dpcm.timpani, false, UNSPECIFIED, Preset::Order::TIMPANI, Note(key))};
+			drums[48][key] = { Preset(DPCM, dpcm.timpani, false, UNSPECIFIED, Preset::Order::TIMPANI, Note(NesChannel::DPCM, key))};
 		}
 
 		// clear sfx
@@ -450,11 +460,15 @@ private:
 	}
 
 	void bindDrumSample(std::shared_ptr<DpcmSample> sample, std::shared_ptr<Instrument> instrument, bool needRelease, int program, int key, Preset::Order order, int pitch) {
-		instrument->dpcmSamples.emplace_back(Note(key), sample, pitch, false);
+		instrument->dpcmSamples.emplace_back(Note(NesChannel::DPCM, key), sample, pitch, false);
 
 		std::vector<Preset>& presets = drums[program][key];
 		std::erase_if(presets, [](Preset const& preset) { return preset.channel == Preset::Channel::DPCM; });
-		presets.emplace_back(Preset::Channel::DPCM, instrument, needRelease, Preset::Duty::UNSPECIFIED, order, Note(key));
+		presets.emplace_back(Preset::Channel::DPCM, instrument, needRelease, Preset::Duty::UNSPECIFIED, order, Note(NesChannel::DPCM, key));
+	}
+
+	static Note NoiseNote(int key) {
+		return {NesChannel::NOISE, key};
 	}
 
 public:

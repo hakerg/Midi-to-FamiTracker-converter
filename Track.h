@@ -5,8 +5,8 @@
 
 class Track {
 private:
-	std::array<int, Pattern::CHANNELS> findColumnSizes() const {
-		std::array<int, Pattern::CHANNELS> columns = { 1, 1, 1, 1, 1, 1, 1, 1 };
+	std::array<int, int(NesChannel::CHANNEL_COUNT)> findColumnSizes() const {
+		std::array<int, int(NesChannel::CHANNEL_COUNT)> columns = { 1, 1, 1, 1, 1, 1, 1, 1 };
 		for (auto& pattern : patterns) {
 			for (int x = 0; x < columns.size(); x++) {
 				for (auto const& cell : pattern->getColumn(NesChannel(x)).cells) {
@@ -62,7 +62,7 @@ public:
 	}
 
 	void exportTxt(std::wofstream& file) const {
-		std::array<int, Pattern::CHANNELS> columnSizes = findColumnSizes();
+		std::array<int, int(NesChannel::CHANNEL_COUNT)> columnSizes = findColumnSizes();
 
 		file << "TRACK " << rows << " " << speed << " " << tempo << " \"" << name << "\"" << std::endl;
 		file << "COLUMNS :";
@@ -74,7 +74,7 @@ public:
 
 		for (int y = 0; y < patternOrder.size(); y++) {
 			file << "ORDER " << hex2(y) << " :";
-			for (int x = 0; x < Pattern::CHANNELS; x++) {
+			for (int x = 0; x < int(NesChannel::CHANNEL_COUNT); x++) {
 				file << " " << hex2(getPatternFromOrder(y, NesChannel(x))->id);
 			}
 			file << std::endl;

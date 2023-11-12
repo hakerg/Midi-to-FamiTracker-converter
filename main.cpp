@@ -5,7 +5,7 @@
 #include "FamiTrackerFile.h"
 #include "Converter.h"
 
-std::array<std::vector<AssignChannelData>, 2048> AssignDataGenerator::assignConfigurationLookup;
+std::array<std::vector<AssignChannelData>, 1024> AssignDataGenerator::assignConfigurationLookup;
 
 void processFile(int i, int argc, char* arg) {
 	std::filesystem::path midiFile = arg;

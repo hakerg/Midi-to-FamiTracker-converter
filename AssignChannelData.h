@@ -2,65 +2,77 @@
 #include "commons.h"
 #include "Preset.h"
 #include "NoteTriggerData.h"
-#include "NesChannelSet.h"
 
 class AssignChannelData {
+private:
+	static std::bitset<int(NesChannel::CHANNEL_COUNT)> initBitset(std::initializer_list<NesChannel> const& nesChannels) {
+		std::bitset<int(NesChannel::CHANNEL_COUNT)> ret;
+		for (NesChannel nesChannel : nesChannels) {
+			ret.set(int(nesChannel));
+		}
+		return ret;
+	}
+
 public:
 	Preset::Duty duty = Preset::Duty::UNSPECIFIED;
-	NesChannelSet nesChannels;
-	bool lowerNotesFirst = false;
+	std::bitset<int(NesChannel::CHANNEL_COUNT)> nesChannels;
 
 	AssignChannelData() = default;
 
-	AssignChannelData(Preset::Duty duty, std::unordered_set<NesChannel> const& nesChannels, bool lowerNotesFirst) : duty(duty), nesChannels(nesChannels), lowerNotesFirst(lowerNotesFirst) {}
+	AssignChannelData(Preset::Duty duty, std::initializer_list<NesChannel> const& nesChannels) : duty(duty), nesChannels(initBitset(nesChannels)) {}
 
 	std::vector<NoteTriggerData> getTriggers(Preset const& preset) const {
 		std::vector<NoteTriggerData> results;
-		for (NesChannel nesChannel : nesChannels) {
-			results.emplace_back(nesChannel, duty, preset, lowerNotesFirst);
-		}
+		forEachAssignedChannel([&results, &preset, this](NesChannel nesChannel) {
+			results.emplace_back(nesChannel, duty, preset, false);
+		});
 		return results;
 	}
 
 	Preset::Channel getChannel() const {
-		switch (*nesChannels.begin()) {
-		case NesChannel::PULSE1:
-		case NesChannel::PULSE2:
-		case NesChannel::PULSE3:
-		case NesChannel::PULSE4:
+		if (isAssigned(NesChannel::PULSE1) ||
+			isAssigned(NesChannel::PULSE2) ||
+			isAssigned(NesChannel::PULSE3) ||
+			isAssigned(NesChannel::PULSE4)) {
 			return Preset::Channel::PULSE;
-		case NesChannel::TRIANGLE:
-			return Preset::Channel::TRIANGLE;
-		case NesChannel::NOISE:
-			return Preset::Channel::NOISE;
-		case NesChannel::DPCM:
-			return Preset::Channel::DPCM;
-		case NesChannel::SAWTOOTH:
-			return Preset::Channel::SAWTOOTH;
-		default:
-			return Preset::Channel(-1);
 		}
+		if (isAssigned(NesChannel::TRIANGLE)) {
+			return Preset::Channel::TRIANGLE;
+		}
+		if (isAssigned(NesChannel::NOISE)) {
+			return Preset::Channel::NOISE;
+		}
+		if (isAssigned(NesChannel::DPCM)) {
+			return Preset::Channel::DPCM;
+		}
+		if (isAssigned(NesChannel::SAWTOOTH)) {
+			return Preset::Channel::SAWTOOTH;
+		}
+		return Preset::Channel(-1);
 	}
 
 	double getChannelRatio(NesChannel nesChannel) const {
-		int count = 0;
-		for (NesChannel c : nesChannels) {
-			if (nesChannel == c) {
-				count++;
-			}
-		}
-		return count / double(nesChannels.size());
+		return isAssigned(nesChannel) ? 1.0 / double(nesChannels.count()) : 0;
 	}
 
 	bool isAssigned(NesChannel nesChannel) const {
-		return nesChannels.contains(nesChannel);
+		return nesChannels.test(int(nesChannel));
 	}
 
-	bool operator == (const AssignChannelData& other) const {
-		return duty == other.duty && nesChannels.flags == other.nesChannels.flags;
-	}
+	bool operator == (const AssignChannelData& other) const = default;
 
 	int getUniqueId() const {
-		return int(nesChannels.flags) | (int(duty) << Pattern::CHANNELS);
+		return int(nesChannels.to_ulong()) | (int(duty) << nesChannels.size());
+	}
+
+	template <typename Callable> void forEachAssignedChannel(Callable action) const {
+		if (nesChannels.none()) {
+			return;
+		}
+		for (size_t i = 0; i < nesChannels.size(); ++i) {
+			if (nesChannels.test(i)) {
+				action(NesChannel(i));
+			}
+		}
 	}
 };

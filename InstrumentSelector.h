@@ -22,13 +22,20 @@ private:
 		AssignDataGenerator assignGenerator(state, 0, &base);
 		for (int i = 0; i < events.size(); i++) {
 			const MidiEvent& event = events[i];
+
+			const MidiChannelState& channelState = state.channels[event.chan];
+			int oldProgram = channelState.program;
+			bool oldDrums = channelState.useDrums;
 			state.processEvent(event);
 
 			if (event.event == MIDI_EVENT_NOTE_ON) {
 				assignGenerator.addNote(event, state);
 			}
 			else if (event.event == MIDI_EVENT_PROGRAM || event.event == MIDI_EVENT_DRUMS) {
-				if (assignGenerator.hasAnyNotes(event.chan)) {
+
+				bool changed = (channelState.program != oldProgram || channelState.useDrums != oldDrums);
+
+				if (changed && assignGenerator.hasAnyNotes(event.chan)) {
 					assignGenerator.calculateMidiData();
 					channelAssignData.push_back(assignGenerator.generateAssignData());
 					assignGenerator = AssignDataGenerator(state, i, &base);

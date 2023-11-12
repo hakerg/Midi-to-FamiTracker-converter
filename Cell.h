@@ -74,7 +74,7 @@ public:
 		effects.emplace_back(string);
 	}
 
-	// Plays 3 notes: base, base + semitones1, base + semitones2
+	// Plays 3 notes alternately: base, base + semitones1, base + semitones2
 	void Arpeggio(int semitones1, int semitones2) {
 		addEffect(std::wstring(L"0") + hex1(semitones1) + hex1(semitones2));
 	}
@@ -130,10 +130,16 @@ public:
 	}
 
 	// 01 - 1F sets speed, 20 - FF sets tempo
-	void SpeedTempo(int speed, int tempo) {
+	void SpeedAndTempo(int speed, int tempo) {
 		std::erase_if(effects, [](Effect& effect) { return effect.string[0] == L'F'; });
 		addEffect(std::wstring(L"F") + hex2(speed));
 		addEffect(std::wstring(L"F") + hex2(tempo));
+	}
+
+	// 01 - 1F sets speed, 20 - FF sets tempo
+	void SpeedOrTempo(int value) {
+		std::erase_if(effects, [](Effect& effect) { return effect.string[0] == L'F'; });
+		addEffect(std::wstring(L"F") + hex2(value));
 	}
 
 	// Delays current cell

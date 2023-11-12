@@ -11,9 +11,7 @@ public:
 	enum class Order {
 		MELODIC,
 
-		CRASH1,
-		CRASH2,
-		CHINESE_CYMBAL,
+		CRASH,
 		SPLASH,
 
 		HIT,

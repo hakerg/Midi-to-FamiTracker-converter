@@ -4,9 +4,9 @@
 
 class PatternOrderSequence {
 public:
-	std::array<std::shared_ptr<Pattern>, Pattern::CHANNELS> columns;
+	std::array<std::shared_ptr<Pattern>, int(NesChannel::CHANNEL_COUNT)> columns;
 
-	explicit PatternOrderSequence(std::array<std::shared_ptr<Pattern>, Pattern::CHANNELS> const& columns) : columns(columns) {}
+	explicit PatternOrderSequence(std::array<std::shared_ptr<Pattern>, int(NesChannel::CHANNEL_COUNT)> const& columns) : columns(columns) {}
 
 	explicit PatternOrderSequence(std::shared_ptr<Pattern> pattern) : columns { pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern } {}
 

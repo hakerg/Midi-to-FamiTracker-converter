@@ -20,7 +20,7 @@ public:
 	int framerate = 0; // 0 - default: 60 for NTSC, 50 for PAL. Default recommended for NSF conversion
     Expansion expansion = Expansion::VRC6;
     bool newVibratoStyle = true;
-    int speedTempoSplitPoint = 32; // min tempo
+    int minTempo = 32;
     int n163Channels = 1;
 
     std::vector<std::shared_ptr<Macro<MacroType::VOLUME>>> volumeMacros;
@@ -117,7 +117,7 @@ public:
         file << "FRAMERATE       " << framerate << std::endl;
         file << "EXPANSION       " << int(expansion) << std::endl;
         file << "VIBRATO         " << int(newVibratoStyle) << std::endl;
-        file << "SPLIT           " << speedTempoSplitPoint << std::endl;
+        file << "SPLIT           " << minTempo << std::endl;
         file << std::endl;
 
         if (int(expansion) & int(Expansion::N163)) {

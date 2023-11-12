@@ -4,10 +4,8 @@
 
 class Pattern {
 public:
-	static const int CHANNELS = 8;
-
 	int id;
-	std::array<Column, CHANNELS> columns;
+	std::array<Column, int(NesChannel::CHANNEL_COUNT)> columns;
 
 	explicit Pattern(int id, int rows) : id(id), columns{ Column(rows), Column(rows), Column(rows), Column(rows), Column(rows), Column(rows), Column(rows), Column(rows) } {}
 
@@ -31,11 +29,11 @@ public:
 		return int(columns[0].cells.size());
 	}
 
-	void exportTxt(std::wofstream& file, std::array<int, CHANNELS>& columnSizes) const {
+	void exportTxt(std::wofstream& file, std::array<int, int(NesChannel::CHANNEL_COUNT)>& columnSizes) const {
 		file << "PATTERN " << hex2(id) << std::endl;
 		for (int y = 0; y < getRows(); y++) {
 			file << "ROW " << hex2(y);
-			for (int x = 0; x < CHANNELS; x++) {
+			for (int x = 0; x < columnSizes.size(); x++) {
 				file << " : ";
 				getCell(NesChannel(x), y).exportTxt(file, columnSizes[x], NesChannel(x));
 			}
