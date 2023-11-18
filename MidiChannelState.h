@@ -3,7 +3,16 @@
 
 class MidiChannelState {
 public:
-    std::unordered_map<int, int> noteVelocities;
+
+    class Note {
+    public:
+        int velocity;
+        double seconds;
+
+        Note(int velocity, double seconds) : velocity(velocity), seconds(seconds) {}
+    };
+
+    std::unordered_map<int, Note> notes{}; // key is key ;)
     int program = 0;
     double volume = 1;
     int bank = 0;
@@ -23,10 +32,10 @@ public:
     }
 
     void stopAllNotes() {
-        noteVelocities.clear();
+        notes.clear();
     }
 
     bool isPlaying(int key) const {
-        return noteVelocities.contains(key);
+        return notes.contains(key);
     }
 };

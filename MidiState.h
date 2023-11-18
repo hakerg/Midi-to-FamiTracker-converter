@@ -5,12 +5,12 @@
 
 class MidiState {
 private:
-    void noteOn(int chan, int key, int velocity) {
-        getChannel(chan).noteVelocities.insert(std::pair<int, int>(key, velocity));
+    void noteOn(int chan, int key, int velocity, double seconds) {
+        getChannel(chan).notes.try_emplace(key, velocity, seconds);
     }
 
     void noteOff(int chan, int key) {
-        getChannel(chan).noteVelocities.erase(key);
+        getChannel(chan).notes.erase(key);
     }
 
     void setProgram(int chan, int preset) {
@@ -93,7 +93,7 @@ public:
 	void processEvent(const MidiEvent& event) {
         switch (event.event) {
         case MIDI_EVENT_NOTE_ON:
-            noteOn(event.chan, event.key, event.velocity);
+            noteOn(event.chan, event.key, event.velocity, event.seconds);
             break;
         case MIDI_EVENT_NOTE_OFF:
         case MIDI_EVENT_NOTE_STOP:

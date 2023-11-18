@@ -29,16 +29,18 @@ private:
 	};
 
 	static constexpr double NOTES_BELOW_RANGE_PUNISHMENT = 2;
-	static constexpr double NOTE_INTERRUPTING_PUNISHMENT = 2;
-	static constexpr double CHORD_NOTE_PUNISHMENT = 0.75;
+	static constexpr double NOTE_INTERRUPTING_PUNISHMENT = 16;
 	static constexpr bool USE_VRC6 = true;
 	static constexpr int SEARCH_DEPTH = 8;
+
+	static std::array<std::vector<AssignChannelData>, 1024> assignConfigurationLookup; // index is 10 bits
 
 	std::array<int, MidiState::CHANNEL_COUNT> programs;
 	int eventIndex;
 	InstrumentBase* instrumentBase;
 	std::array<MidiChannelNotesData, MidiState::CHANNEL_COUNT> midiData;
-	static std::array<std::vector<AssignChannelData>, 1024> assignConfigurationLookup; // index is 10 bits
+	IndexedAssignData lastData;
+	ScoredAssignData bestData{ AssignData({}), 0 };
 
 	static double getAudioSimilarity(Preset const& preset, AssignChannelData const& channelData) {
 		return SoundWaveProfile(preset.channel, preset.duty).getSimilarity(SoundWaveProfile(channelData.getChannel(), channelData.duty));
@@ -115,7 +117,6 @@ private:
 			count += midiData[chan].interruptingNotes[chan2] * playedRatioPerChannel2 * double(commonChannels.count());
 		}
 
-		// Microsoft please fix C28020
 		double playedRatioPerChannel = midiData[chan].getPlayedNotesRatioPerAssignedChannel(nesChannels);
 
 		return count * playedRatioPerChannel;
@@ -193,19 +194,19 @@ private:
 		return assignConfigurationLookup[getAssignConfigurationId(preset.duty, preset.channel, preset.isSimpleLoop(), maxChannelCount)];
 	}
 
-	void replaceIfBetter(ScoredAssignData& scoredData, AssignData const& assignData, bool includeDutyDiversity) const {
+	void replaceIfBetter(AssignData const& assignData, bool includeDutyDiversity) {
 		double newScore = calculateScore(assignData);
 		if (includeDutyDiversity) {
 			newScore *= getDutyDiversityScore(assignData);
 		}
 
-		if (newScore > scoredData.score) {
-			scoredData.data = assignData;
-			scoredData.score = newScore;
+		if (newScore > bestData.score) {
+			bestData.data = assignData;
+			bestData.score = newScore;
 		}
 	}
 
-	void tryUnassignSomeChannels(ScoredAssignData& bestData, AssignData const& workingData, int depth, std::unordered_set<AssignData>& checked) const {
+	void tryUnassignSomeChannels(AssignData const& workingData, int depth, std::unordered_set<AssignData>& checked) {
 
 		if (depth == 0) {
 			return;
@@ -217,7 +218,7 @@ private:
 				continue;
 			}
 
-			workingData.getNesData(chan).forEachAssignedChannel([&bestData, &workingData, depth, &checked, chan, this](NesChannel nesChannel) {
+			workingData.getNesData(chan).forEachAssignedChannel([&workingData, depth, &checked, chan, this](NesChannel nesChannel) {
 				AssignData newData = workingData;
 				newData.unassign(chan, nesChannel);
 
@@ -225,16 +226,16 @@ private:
 					return;
 				}
 
-				replaceIfBetter(bestData, newData, false);
+				replaceIfBetter(newData, false);
 
-				tryAssignSomeChannels(bestData, newData, depth, checked);
+				tryAssignSomeChannels(newData, depth, checked);
 			});
 		}
 
-		tryAssignSomeChannels(bestData, workingData, depth, checked);
+		tryAssignSomeChannels(workingData, depth, checked);
 	}
 
-	void tryAssignSomeChannels(ScoredAssignData& bestData, AssignData const& workingData, int depth, std::unordered_set<AssignData>& checked) const {
+	void tryAssignSomeChannels(AssignData const& workingData, int depth, std::unordered_set<AssignData>& checked) {
 
 		if (depth == 0) {
 			return;
@@ -251,7 +252,7 @@ private:
 				continue;
 			}
 
-			for (AssignChannelData const& configuration : getAssignConfigurations(preset.value(), int(midiData[chan].chords.size()))) {
+			for (AssignChannelData const& configuration : getAssignConfigurations(preset.value(), int(midiData[chan].noteCountAtNotesOn.size()))) {
 				AssignData newData = workingData;
 				newData.assign(chan, configuration);
 
@@ -259,13 +260,13 @@ private:
 					continue;
 				}
 
-				replaceIfBetter(bestData, newData, false);
+				replaceIfBetter(newData, false);
 
-				tryUnassignSomeChannels(bestData, newData, depth, checked);
+				tryUnassignSomeChannels(newData, depth, checked);
 			}
 		}
 
-		tryUnassignSomeChannels(bestData, workingData, depth, checked);
+		tryUnassignSomeChannels(workingData, depth, checked);
 	}
 
 	static double getDutyDiversityScore(AssignData const& assignData) {
@@ -281,7 +282,7 @@ private:
 		return 3 + counts[0] * 2 + counts[1];
 	}
 
-	void diverseDuty(ScoredAssignData& bestData, AssignData const& workingData, int chan = 0) const {
+	void diverseDuty(AssignData const& workingData, int chan = 0) {
 		using enum Preset::Duty;
 		if (chan >= MidiState::CHANNEL_COUNT) {
 			return;
@@ -295,8 +296,8 @@ private:
 		for (Preset::Duty duty : {PULSE_12, PULSE_25, PULSE_50}) {
 			AssignData newData = workingData;
 			newData.setDuty(chan, duty);
-			replaceIfBetter(bestData, newData, true);
-			diverseDuty(bestData, newData, chan + 1);
+			replaceIfBetter(newData, true);
+			diverseDuty(newData, chan + 1);
 		}
 	}
 
@@ -306,10 +307,10 @@ private:
 		}
 	}
 
-	AssignData getCleanInitData(IndexedAssignData const& initData) const {
-		AssignData ret = initData.data;
+	AssignData getCleanInitData() const {
+		AssignData ret = lastData.data;
 		for (int i = 0; i < MidiState::CHANNEL_COUNT; i++) {
-			if (midiData[i].notes <= 0 || programs[i] != initData.programs[i]) {
+			if (midiData[i].notes <= 0 || programs[i] != lastData.programs[i]) {
 				ret.reset(i);
 			}
 		}
@@ -347,57 +348,23 @@ public:
 		}
 	}
 
-	explicit AssignDataGenerator(MidiState const& midiState, int eventIndex, InstrumentBase* instrumentBase) :
-		programs(getPrograms(midiState)), eventIndex(eventIndex), instrumentBase(instrumentBase) {}
+	explicit AssignDataGenerator(MidiState const& midiState, int eventIndex, InstrumentBase* instrumentBase, IndexedAssignData const& lastData) :
+		programs(getPrograms(midiState)), eventIndex(eventIndex), instrumentBase(instrumentBase), lastData(lastData) {}
 
 	void addNote(MidiEvent const& event, MidiState& currentState) {
-		// drums are processed in InstrumentSelector::getNoteTriggers
-		if (currentState.getChannel(event.chan).useDrums) {
-			return;
-		}
-
-		MidiChannelNotesData& channelData = midiData[event.chan];
-		channelData.notes++;
-		for (int i = 0; i < channelData.notesOutOfRange.size(); i++) {
-			if (!Note::isInPlayableRange(NesChannel(i), event.key)) {
-				channelData.notesOutOfRange[i]++;
-			}
-		}
-
-		// added small amount to fix i.e. the strings in DOOM - E1M2
-		channelData.volumeSum += currentState.getChannel(event.chan).getNoteVolume(event.velocity) * NesHeightVolumeController::getHeightVolumeMultiplier(event.key) + 0.01;
-
-		auto noteCount = int(currentState.getChannel(event.chan).noteVelocities.size());
-		channelData.chords[noteCount]++;
-
-		for (int chan2 = 0; chan2 < MidiState::CHANNEL_COUNT; chan2++) {
-			if (currentState.getChannel(chan2).useDrums) {
-				continue;
-			}
-
-			for (auto const& [key2, _] : currentState.getChannel(chan2).noteVelocities) {
-				if (event.chan == chan2 && event.key == key2) {
-					continue;
-				}
-
-				if (event.chan != chan2) {
-					channelData.interruptingNotes[chan2]++;
-				}
-			}
-		}
+		midiData[event.chan].addNote(event, currentState);
 	}
 
-	IndexedAssignData generateAssignData(IndexedAssignData const& initData) {
+	IndexedAssignData generateAssignData() {
 		calculateMidiData();
-
-		ScoredAssignData bestData(getCleanInitData(initData), 0);
+		bestData.data = getCleanInitData();
 		bestData.score = calculateScore(bestData.data);
 
 		std::unordered_set<AssignData> checked{ bestData.data };
 
 		while (true) {
 			double oldScore = bestData.score;
-			tryAssignSomeChannels(bestData, bestData.data, SEARCH_DEPTH, checked);
+			tryAssignSomeChannels(bestData.data, SEARCH_DEPTH, checked);
 			if (bestData.score <= oldScore) {
 				break;
 			}
@@ -406,7 +373,7 @@ public:
 		std::cout << "Diversing pulse duties..." << std::endl;
 
 		bestData.score = 0;
-		diverseDuty(bestData, bestData.data);
+		diverseDuty(bestData.data);
 
 		return IndexedAssignData(bestData.data, eventIndex, programs);
 	}

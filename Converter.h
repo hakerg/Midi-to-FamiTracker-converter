@@ -15,7 +15,7 @@ private:
 	static constexpr bool ADJUST_SPEED = true;
 	static constexpr bool MERGE_EMPTY_ROWS = true;
 
-    std::array<double, int(NesChannel::CHANNEL_COUNT)> nesVolumeFactor = { 0.6, 0.6, 1.0, 0.8, 1.0, 0.6, 0.6, 0.6 };
+    std::array<double, int(NesChannel::CHANNEL_COUNT)> nesVolumeFactor = { 0.6, 0.6, 1.0, 1.0, 1.0, 0.6, 0.6, 0.6 };
 
     InstrumentSelector instrumentSelector;
     FamiTrackerFile file;

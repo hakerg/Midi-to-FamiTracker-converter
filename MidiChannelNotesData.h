@@ -8,16 +8,16 @@ private:
 	int countPlayedNotes(int assignedChannelCount) const {
 		int count = 0;
 		for (int i = 1; i <= assignedChannelCount; i++) {
-			count += getMapValueOrDefault(chords, i, 0);
+			count += getMapValueOrDefault(noteCountAtNotesOn, i, 0);
 		}
 		return count;
 	}
-
+	
 	double countChordScoreMultiplier(int assignedChannelCount) const {
 		int count = 0;
 		double multiplier = 0;
 		for (int i = 1; i <= assignedChannelCount; i++) {
-			int chordCount = getMapValueOrDefault(chords, i, 0);
+			int chordCount = getMapValueOrDefault(noteCountAtNotesOn, i, 0);
 			count += chordCount;
 			multiplier += chordCount / double(i * 3.0 - 2);
 		}
@@ -25,6 +25,8 @@ private:
 	}
 
 public:
+	static constexpr double MIN_NOTE_SECONDS = 1 / 20.0; // 3 frames
+
 	// how many notes appeared
 	int notes{};
 
@@ -35,7 +37,7 @@ public:
 	double volumeSum{};
 
 	// how many chords with specific note count
-	std::unordered_map<int, int> chords{};
+	std::unordered_map<int, int> noteCountAtNotesOn{};
 
 	// how many times this channel interrupted other channels
 	std::array<int, MidiState::CHANNEL_COUNT> interruptingNotes{};
@@ -80,8 +82,8 @@ public:
 		// added small amount to fix i.e. the strings in DOOM - E1M2
 		volumeSum += channelState.getNoteVolume(event.velocity) + 0.01;
 
-		auto noteCount = int(channelState.noteVelocities.size());
-		chords[max(noteCount, int(chords.size()) - 1)]++;
+		auto noteCount = int(channelState.notes.size());
+		noteCountAtNotesOn[noteCount]++;
 
 		for (int chan2 = 0; chan2 < MidiState::CHANNEL_COUNT; chan2++) {
 			MidiChannelState& channelState2 = currentState.getChannel(chan2);
@@ -89,7 +91,7 @@ public:
 				continue;
 			}
 
-			interruptingNotes[chan2] += int(channelState2.noteVelocities.size());
+			interruptingNotes[chan2] += int(channelState2.notes.size());
 		}
 	}
 

@@ -12,18 +12,12 @@
 
 class InstrumentSelector {
 private:
-	static constexpr double MIN_NOTE_SECONDS = 1 / 20.0; // 3 frames
-
 	InstrumentBase base;
 	std::vector<IndexedAssignData> channelAssignData{};
 
-	IndexedAssignData getLastAssignData() const {
-		return channelAssignData.empty() ? IndexedAssignData(AssignData({}), 0, {}) : channelAssignData.back();
-	}
-
 	void fillChannelAssignData(HSTREAM handle, std::vector<MidiEvent> const& events) {
 		MidiState state;
-		AssignDataGenerator assignGenerator(state, 0, &base);
+		AssignDataGenerator assignGenerator(state, 0, &base, IndexedAssignData(AssignData({}), 0, {}));
 
 		for (int i = 0; i < events.size(); i++) {
 			const MidiEvent& event = events[i];
@@ -43,9 +37,8 @@ private:
 				}
 
 				if (assignGenerator.hasAnyNotes(event.chan)) {
-					channelAssignData.push_back(assignGenerator.generateAssignData(getLastAssignData()));
-
-					assignGenerator = AssignDataGenerator(state, i, &base);
+					channelAssignData.push_back(assignGenerator.generateAssignData());
+					assignGenerator = AssignDataGenerator(state, i, &base, channelAssignData.back());
 				}
 				else {
 					assignGenerator.setProgram(event.chan, channelState.program);
@@ -53,7 +46,7 @@ private:
 			}
 		}
 
-		channelAssignData.push_back(assignGenerator.generateAssignData(getLastAssignData()));
+		channelAssignData.push_back(assignGenerator.generateAssignData());
 	}
 
 	const AssignData& getAssign(int eventIndex) const {
@@ -80,8 +73,8 @@ private:
 		score.set(PLAYABLE_RANGE, Note::isInPlayableRange(checkedTrigger.nesChannel, event.key) ? 1 : 0);
 		score.set(NOTE_TIME, 0);
 		score.set(PRIORITY, -int(checkedTrigger.preset.order));
-		score.set(NOTE_END_TIME, min(MIN_NOTE_SECONDS, event.noteEndSeconds - event.seconds));
-		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(checkedTrigger.nesChannel, event, MIN_NOTE_SECONDS));
+		score.set(NOTE_END_TIME, min(MidiChannelNotesData::MIN_NOTE_SECONDS, event.noteEndSeconds - event.seconds));
+		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(checkedTrigger.nesChannel, event, MidiChannelNotesData::MIN_NOTE_SECONDS));
 		score.set(NOTE_HEIGHT, checkedTrigger.lowerNotesFirst ? -event.key : event.key);
 		score.set(VELOCITY, event.velocity);
 
@@ -103,10 +96,10 @@ private:
 		score.set(INTERRUPTS, 0);
 		score.set(PLAYING, note->playing ? 2 : 1);
 		score.set(PLAYABLE_RANGE, Note::isInPlayableRange(triggerData.nesChannel, note->event.key) ? 1 : 0);
-		score.set(NOTE_TIME, -max(0, nesState.seconds - note->event.seconds - MIN_NOTE_SECONDS));
+		score.set(NOTE_TIME, -max(0, nesState.seconds - note->event.seconds - MidiChannelNotesData::MIN_NOTE_SECONDS));
 		score.set(PRIORITY, -int(triggerData.preset.order));
-		score.set(NOTE_END_TIME, min(MIN_NOTE_SECONDS, note->event.noteEndSeconds - nesState.seconds));
-		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(nesChannel, note->event, MIN_NOTE_SECONDS));
+		score.set(NOTE_END_TIME, min(MidiChannelNotesData::MIN_NOTE_SECONDS, note->event.noteEndSeconds - nesState.seconds));
+		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(nesChannel, note->event, MidiChannelNotesData::MIN_NOTE_SECONDS));
 		score.set(NOTE_HEIGHT, triggerData.lowerNotesFirst ? -note->event.key : note->event.key);
 		score.set(VELOCITY, note->event.velocity);
 

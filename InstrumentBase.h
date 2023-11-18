@@ -149,12 +149,12 @@ private:
 		using enum Preset::Duty;
 
 		auto loopMacro = file.addVolumeMacro({ 15, 0 }, -1, 0);
-		auto fastDecayMacro = file.addVolumeMacro({ 15, 11, 7, 3, 0 });
-		auto decayMacro = file.addVolumeMacro(createDecayValues(15, 0, -1, 1));
-		auto longDecayMacro = file.addVolumeMacro(createDecayValues(15, 0, -1, 2));
-		auto pianoMacro = file.addVolumeMacro(createDecayValues(15, 0, -1, 6));
-		auto longDecayMacroCut = file.addVolumeMacro(createDecayValues(15, 0, -1, 2), -1, 30);
-		auto pianoMacroCut = file.addVolumeMacro(createDecayValues(15, 0, -1, 6), -1, 90);
+		auto decay1_4Macro = file.addVolumeMacro({ 15, 11, 7, 3, 0 });
+		auto decay1_2Macro = file.addVolumeMacro({ 15, 13, 11, 9, 7, 5, 3, 1, 0 });
+		auto decay1Macro = file.addVolumeMacro(createDecayValues(15, 0, -1, 1));
+		auto decay2Macro = file.addVolumeMacro(createDecayValues(15, 0, -1, 2));
+		auto decay2MacroCut = file.addVolumeMacro(createDecayValues(15, 0, -1, 2), -1, 30);
+		auto decay6MacroCut = file.addVolumeMacro(createDecayValues(15, 0, -1, 6), -1, 90);
 		auto attackMacro = file.addVolumeMacro({ 3, 7, 11, 15, 0 }, -1, 3);
 		auto stringsMacro = file.addVolumeMacro({ 3, 7, 11, 15, 5, 5, 5, 5, 5, 5, 5, 5, 0 }, -1, 3);
 		auto reverseCymbalValues = createDecayValues(1, 10, 1, 2);
@@ -162,47 +162,51 @@ private:
 		auto reverseCymbalMacro = file.addVolumeMacro(reverseCymbalValues, -1, 19);
 		auto hiHatMacro = file.addVolumeMacro({ 12, 12, 12, 12, 12, 0 });
 
+		auto snareMacro = file.addArpeggioMacro({ 0, 0, 1, 1, 2 }, ArpeggioType::ABSOLUTE_);
+
 		auto vibratoMacro = file.addPitchMacro({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, 1, 1, 1, 1 }, 15);
 
 		auto pluckDutyMacro = file.addDutyMacro({ 2, 1, 0, 1 });
 
 		std::shared_ptr<Instrument> loop = file.addInstrument(L"Loop", loopMacro);
 		std::shared_ptr<Instrument> loopVibrato = file.addInstrument(L"Loop vibrato", loopMacro, {}, vibratoMacro);
-		std::shared_ptr<Instrument> fastDecay = file.addInstrument(L"Fast decay", fastDecayMacro);
-		std::shared_ptr<Instrument> decay = file.addInstrument(L"Decay", decayMacro);
-		std::shared_ptr<Instrument> longDecayCut = file.addInstrument(L"Long decay cut", longDecayMacroCut);
-		std::shared_ptr<Instrument> pianoCut = file.addInstrument(L"Piano cut", pianoMacroCut);
+		std::shared_ptr<Instrument> decay1_4 = file.addInstrument(L"Decay 1/4", decay1_4Macro);
+		std::shared_ptr<Instrument> decay1_2 = file.addInstrument(L"Decay 1/2", decay1_2Macro);
+		std::shared_ptr<Instrument> decay1 = file.addInstrument(L"Decay 1", decay1Macro);
+		std::shared_ptr<Instrument> decay2 = file.addInstrument(L"Decay 2", decay2Macro);
+		std::shared_ptr<Instrument> decay2Cut = file.addInstrument(L"Decay 2 cut", decay2MacroCut);
+		std::shared_ptr<Instrument> decay6Cut = file.addInstrument(L"Decay 6 cut", decay6MacroCut);
 		std::shared_ptr<Instrument> attack = file.addInstrument(L"Attack", attackMacro);
 		std::shared_ptr<Instrument> strings = file.addInstrument(L"Strings", stringsMacro, {}, vibratoMacro);
 		std::shared_ptr<Instrument> pad = file.addInstrument(L"Pad", stringsMacro);
 		std::shared_ptr<Instrument> guitarDistortion = file.addInstrument(L"Guitar distortion", loopMacro, {}, {}, {}, pluckDutyMacro);
-		std::shared_ptr<Instrument> crash = file.addInstrument(L"Crash", longDecayMacro);
 		std::shared_ptr<Instrument> reverseCymbal = file.addInstrument(L"Reverse cymbal", reverseCymbalMacro);
 		std::shared_ptr<Instrument> hiHat = file.addInstrument(L"Hi-hat", hiHatMacro);
+		std::shared_ptr<Instrument> snare = file.addInstrument(L"Snare", decay1Macro, snareMacro);
 
 		dpcm.createInstruments(file);
 
 		
 
 		// piano
-		gm[0] = { Preset(PULSE, pianoCut, true, PULSE_50) };
-		gm[1] = { Preset(PULSE, pianoCut, true, PULSE_50) };
-		gm[2] = { Preset(PULSE, pianoCut, true, PULSE_50) };
-		gm[3] = { Preset(PULSE, pianoCut, true, PULSE_50) };
-		gm[4] = { Preset(PULSE, pianoCut, true, PULSE_50) };
-		gm[5] = { Preset(PULSE, pianoCut, true, PULSE_50) };
-		gm[6] = { Preset(PULSE, pianoCut, true, PULSE_12) };
-		gm[7] = { Preset(PULSE, pianoCut, true, PULSE_12) };
+		gm[0] = { Preset(PULSE, decay6Cut, true, PULSE_50) };
+		gm[1] = { Preset(PULSE, decay6Cut, true, PULSE_50) };
+		gm[2] = { Preset(PULSE, decay6Cut, true, PULSE_50) };
+		gm[3] = { Preset(PULSE, decay6Cut, true, PULSE_50) };
+		gm[4] = { Preset(PULSE, decay6Cut, true, PULSE_50) };
+		gm[5] = { Preset(PULSE, decay6Cut, true, PULSE_50) };
+		gm[6] = { Preset(PULSE, decay6Cut, true, PULSE_12) };
+		gm[7] = { Preset(PULSE, decay6Cut, true, PULSE_12) };
 
 		// chromatic percussion
-		gm[8] = { Preset(PULSE, pianoCut, false, PULSE_50) };
-		gm[9] = { Preset(PULSE, pianoCut, false, PULSE_50) };
-		gm[10] = { Preset(PULSE, longDecayCut, false, PULSE_50) };
-		gm[11] = { Preset(PULSE, pianoCut, false, PULSE_50) };
-		gm[12] = { Preset(PULSE, pianoCut, false, PULSE_50) };
-		gm[13] = { Preset(PULSE, longDecayCut, false, PULSE_50) };
-		gm[14] = { Preset(PULSE, pianoCut, false, PULSE_50) };
-		gm[15] = { Preset(PULSE, pianoCut, false, PULSE_12) };
+		gm[8] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
+		gm[9] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
+		gm[10] = { Preset(PULSE, decay2Cut, false, PULSE_50) };
+		gm[11] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
+		gm[12] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
+		gm[13] = { Preset(PULSE, decay2Cut, false, PULSE_50) };
+		gm[14] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
+		gm[15] = { Preset(PULSE, decay6Cut, false, PULSE_12) };
 
 		// organ
 		gm[16] = { Preset(PULSE, attack, true, PULSE_25) };
@@ -215,11 +219,11 @@ private:
 		gm[23] = { Preset(PULSE, attack, true, PULSE_12) };
 
 		// guitar
-		gm[24] = { Preset(PULSE, pianoCut, true, PULSE_25) };
-		gm[25] = { Preset(PULSE, pianoCut, true, PULSE_25) };
-		gm[26] = { Preset(PULSE, pianoCut, true, PULSE_25) };
-		gm[27] = { Preset(PULSE, pianoCut, true, PULSE_25) };
-		gm[28] = { Preset(PULSE, longDecayCut, true, PULSE_25) };
+		gm[24] = { Preset(PULSE, decay6Cut, true, PULSE_25) };
+		gm[25] = { Preset(PULSE, decay6Cut, true, PULSE_25) };
+		gm[26] = { Preset(PULSE, decay6Cut, true, PULSE_25) };
+		gm[27] = { Preset(PULSE, decay6Cut, true, PULSE_25) };
+		gm[28] = { Preset(PULSE, decay2Cut, true, PULSE_25) };
 		gm[29] = { Preset(PULSE, guitarDistortion, true) };
 		gm[30] = { Preset(PULSE, guitarDistortion, true) };
 		gm[31] = { Preset(PULSE, guitarDistortion, true) };
@@ -240,8 +244,8 @@ private:
 		gm[42] = { Preset(PULSE, strings, true, PULSE_50) };
 		gm[43] = { Preset(PULSE, strings, true, PULSE_50) };
 		gm[44] = { Preset(PULSE, strings, true, PULSE_50) };
-		gm[45] = { Preset(PULSE, decay, false, PULSE_50) };
-		gm[46] = { Preset(PULSE, pianoCut, false, PULSE_50) };
+		gm[45] = { Preset(PULSE, decay1, false, PULSE_50) };
+		gm[46] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
 		gm[47] = { Preset(DPCM, dpcm.timpani, false, UNSPECIFIED, Preset::Order::TIMPANI, {}) };
 
 		// ensemble
@@ -295,39 +299,39 @@ private:
 		gm[87] = { Preset(PULSE, loop, true, PULSE_12) };
 
 		// synth pad
-		gm[88] = { Preset(PULSE, pianoCut, false, PULSE_50) };
+		gm[88] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
 		gm[89] = { Preset(TRIANGLE, pad, true) };
 		gm[90] = { Preset(PULSE, loop, true, PULSE_25) };
-		gm[91] = { Preset(PULSE, pianoCut, false, PULSE_50) };
-		gm[92] = { Preset(PULSE, pianoCut, false, PULSE_50) };
+		gm[91] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
+		gm[92] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
 		gm[93] = { Preset(SAWTOOTH, pad, true) };
 		gm[94] = { Preset(PULSE, pad, true, PULSE_50) };
 		gm[95] = { Preset(TRIANGLE, pad, true) };
 
 		// synth effects
-		gm[96] = { Preset(PULSE, pianoCut, false, PULSE_50) };
+		gm[96] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
 		gm[97] = { Preset(PULSE, pad, true, PULSE_25) };
-		gm[98] = { Preset(PULSE, pianoCut, false, PULSE_50) };
-		gm[99] = { Preset(PULSE, pianoCut, false, PULSE_25) };
-		gm[100] = { Preset(PULSE, pianoCut, false, PULSE_50) };
+		gm[98] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
+		gm[99] = { Preset(PULSE, decay6Cut, false, PULSE_25) };
+		gm[100] = { Preset(PULSE, decay6Cut, false, PULSE_50) };
 		gm[101] = { Preset(TRIANGLE, pad, true) };
 		gm[102] = { Preset(PULSE, strings, true, PULSE_25) };
-		gm[103] = { Preset(PULSE, pianoCut, false, PULSE_12) };
+		gm[103] = { Preset(PULSE, decay6Cut, false, PULSE_12) };
 
 		// ethnic
-		gm[104] = { Preset(PULSE, pianoCut, false, PULSE_25) };
-		gm[105] = { Preset(PULSE, pianoCut, true, PULSE_25) };
-		gm[106] = { Preset(PULSE, longDecayCut, false, PULSE_12) };
-		gm[107] = { Preset(PULSE, pianoCut, false, PULSE_12) };
-		gm[108] = { Preset(PULSE, longDecayCut, false, PULSE_50) };
+		gm[104] = { Preset(PULSE, decay6Cut, false, PULSE_25) };
+		gm[105] = { Preset(PULSE, decay6Cut, true, PULSE_25) };
+		gm[106] = { Preset(PULSE, decay2Cut, false, PULSE_12) };
+		gm[107] = { Preset(PULSE, decay6Cut, false, PULSE_12) };
+		gm[108] = { Preset(PULSE, decay2Cut, false, PULSE_50) };
 		gm[109] = { Preset(PULSE, attack, true, PULSE_50) };
 		gm[110] = { Preset(PULSE, strings, true, PULSE_50) };
 		gm[111] = { Preset(PULSE, loop, true, PULSE_25) };
 
 		// percussive
-		gm[112] = { Preset(PULSE, longDecayCut, false, PULSE_50) };
-		gm[113] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::AGOGO, NoiseNote(12)) };
-		gm[114] = { Preset(PULSE, longDecayCut, false, PULSE_50) };
+		gm[112] = { Preset(PULSE, decay2Cut, false, PULSE_50) };
+		gm[113] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::AGOGO, NoiseNote(12)) };
+		gm[114] = { Preset(PULSE, decay2Cut, false, PULSE_50) };
 		gm[115] = { Preset(DPCM, dpcm.woodblock, false, UNSPECIFIED, Preset::Order::STICK, {}) };
 		gm[116] = { Preset(DPCM, dpcm.taiko, false, UNSPECIFIED, Preset::Order::TAIKO, {}) };
 		gm[117] = { Preset(DPCM, dpcm.melodicTom, false, UNSPECIFIED, Preset::Order::TOM, {}) };
@@ -342,28 +346,28 @@ private:
 		gm[124] = {};
 		gm[125] = {};
 		gm[126] = {};
-		gm[127] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::GUN, NoiseNote(1), 5) };
+		gm[127] = { Preset(NOISE, decay1, false, NOISE_NORMAL, Preset::Order::GUN, NoiseNote(1), 5) };
 
 
 
 		// drums
-		drums[0][39] = { Preset(NOISE, fastDecay, false, UNSPECIFIED, Preset::Order::CLAP, NoiseNote(7)) }; // clap
-		drums[0][42] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::HI_HAT, NoiseNote(12)) }; // hi-hat
-		drums[0][44] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::HI_HAT, NoiseNote(12)) }; // hi-hat
-		drums[0][46] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::OPEN_HI_HAT, NoiseNote(12)) }; // open hi-hat
-		drums[0][49] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(9), 15) }; // crash 1
-		drums[0][51] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride cymbal 1
-		drums[0][52] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(6), 15) }; // chinese cymbal
-		drums[0][53] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride bell
-		drums[0][54] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::TAMBOURINE, NoiseNote(14)) }; // tambourine
-		drums[0][55] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::SPLASH, NoiseNote(13), 15) }; // splash
-		drums[0][56] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // cowbell
-		drums[0][57] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(10), 15) }; // crash 2
-		drums[0][59] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride cymbal 2
-		drums[0][67] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::AGOGO, NoiseNote(12)) }; // high agogo
-		drums[0][68] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::AGOGO, NoiseNote(11)) }; // low agogo
-		drums[0][80] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::TRIANGLE, NoiseNote(15)) }; // triangle closed
-		drums[0][81] = { Preset(NOISE, decay, false, NOISE_LOOP, Preset::Order::TRIANGLE, NoiseNote(15)) }; // triangle open
+		drums[0][39] = { Preset(NOISE, decay1_2, false, UNSPECIFIED, Preset::Order::CLAP, NoiseNote(7)) }; // clap
+		drums[0][42] = { Preset(NOISE, decay1_4, false, NOISE_NORMAL, Preset::Order::HI_HAT, NoiseNote(12)) }; // hi-hat
+		drums[0][44] = { Preset(NOISE, decay1_4, false, NOISE_NORMAL, Preset::Order::HI_HAT, NoiseNote(12)) }; // hi-hat
+		drums[0][46] = { Preset(NOISE, decay1, false, NOISE_NORMAL, Preset::Order::OPEN_HI_HAT, NoiseNote(12)) }; // open hi-hat
+		drums[0][49] = { Preset(NOISE, decay2, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(9), 15) }; // crash 1
+		drums[0][51] = { Preset(NOISE, decay1_2, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride cymbal 1
+		drums[0][52] = { Preset(NOISE, decay2, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(6), 15) }; // chinese cymbal
+		drums[0][53] = { Preset(NOISE, decay1_2, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride bell
+		drums[0][54] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::TAMBOURINE, NoiseNote(14)) }; // tambourine
+		drums[0][55] = { Preset(NOISE, decay2, false, NOISE_NORMAL, Preset::Order::SPLASH, NoiseNote(13), 15) }; // splash
+		drums[0][56] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // cowbell
+		drums[0][57] = { Preset(NOISE, decay2, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(10), 15) }; // crash 2
+		drums[0][59] = { Preset(NOISE, decay1_2, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride cymbal 2
+		drums[0][67] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::AGOGO, NoiseNote(12)) }; // high agogo
+		drums[0][68] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::AGOGO, NoiseNote(11)) }; // low agogo
+		drums[0][80] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::TRIANGLE, NoiseNote(15)) }; // triangle closed
+		drums[0][81] = { Preset(NOISE, decay1, false, NOISE_LOOP, Preset::Order::TRIANGLE, NoiseNote(15)) }; // triangle open
 		bindDrumSample(dpcm.samples.kick, dpcm.standardDrums, false, 0, 35, Preset::Order::KICK, 15);
 		bindDrumSample(dpcm.samples.kick, dpcm.standardDrums, false, 0, 36, Preset::Order::KICK, 15);
 		bindDrumSample(dpcm.samples.stick, dpcm.standardDrums, false, 0, 37, Preset::Order::STICK, 15);
@@ -382,25 +386,19 @@ private:
 
 		// hard drums
 		drums[16] = drums[0];
-		drums[16][38] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(7), 5) }; // snare
-		drums[16][40] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(7), 5) }; // snare
-		drums[16][41] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(2), 5) }; // tom
-		drums[16][43] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(3), 5) }; // tom
-		drums[16][45] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(4), 5) }; // tom
-		drums[16][47] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(5), 5) }; // tom
-		drums[16][48] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(6), 5) }; // tom
-		drums[16][50] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(7), 5) }; // tom
+		drums[16][38] = { Preset(NOISE, snare, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(5), 5) }; // snare
+		drums[16][40] = { Preset(NOISE, snare, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(5), 5) }; // snare
+		drums[16][41] = { Preset(NOISE, decay1, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(2), 5) }; // tom
+		drums[16][43] = { Preset(NOISE, decay1, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(3), 5) }; // tom
+		drums[16][45] = { Preset(NOISE, decay1, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(4), 5) }; // tom
+		drums[16][47] = { Preset(NOISE, decay1, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(5), 5) }; // tom
+		drums[16][48] = { Preset(NOISE, decay1, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(6), 5) }; // tom
+		drums[16][50] = { Preset(NOISE, decay1, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(7), 5) }; // tom
 
 		// electronic drums
 		drums[24] = drums[16];
-		drums[16][38] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(7), 5) }; // snare
-		drums[16][40] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(7), 5) }; // snare
-		drums[24][41] = {}; // tom
-		drums[24][43] = {}; // tom
-		drums[24][45] = {}; // tom
-		drums[24][47] = {}; // tom
-		drums[24][48] = {}; // tom
-		drums[24][50] = {}; // tom
+		bindDrumSample(dpcm.samples.analogKick, dpcm.electronicDrums, false, 24, 35, Preset::Order::KICK, 15);
+		bindDrumSample(dpcm.samples.analogKick, dpcm.electronicDrums, false, 24, 36, Preset::Order::KICK, 15);
 		bindDrumSample(dpcm.samples.synthDrum, dpcm.electronicDrums, false, 24, 41, Preset::Order::TOM, 10);
 		bindDrumSample(dpcm.samples.synthDrum, dpcm.electronicDrums, false, 24, 43, Preset::Order::TOM, 11);
 		bindDrumSample(dpcm.samples.synthDrum, dpcm.electronicDrums, false, 24, 45, Preset::Order::TOM, 12);
@@ -421,9 +419,9 @@ private:
 
 		// orchestra
 		drums[48] = drums[0];
-		drums[48][38] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(9)) }; // snare
-		drums[48][40] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(9)) }; // snare
-		drums[48][59] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(9), 15) }; // crash 1
+		drums[48][38] = { Preset(NOISE, decay1_4, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(9)) }; // snare
+		drums[48][40] = { Preset(NOISE, decay1_4, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(9)) }; // snare
+		drums[48][59] = { Preset(NOISE, decay2, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(9), 15) }; // crash 1
 		bindDrumSample(dpcm.samples.stick, dpcm.orchestraDrums, false, 48, 39, Preset::Order::STICK, 15);
 		drums[48][35] = { Preset(DPCM, dpcm.timpani, false, UNSPECIFIED, Preset::Order::KICK, Note(NesChannel::DPCM, 35)) };
 		drums[48][36] = { Preset(DPCM, dpcm.timpani, false, UNSPECIFIED, Preset::Order::KICK, Note(NesChannel::DPCM, 36)) };
