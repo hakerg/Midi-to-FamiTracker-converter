@@ -5,11 +5,13 @@
 #include "MidiState.h"
 
 class AssignData {
-public:
-	int eventIndex;
+private:
+	friend struct std::hash<AssignData>;
+
 	std::array<AssignChannelData, MidiState::CHANNEL_COUNT> nesData;
 
-	explicit AssignData(int eventIndex) : eventIndex(eventIndex) {}
+public:
+	explicit AssignData(std::array<AssignChannelData, MidiState::CHANNEL_COUNT> const& nesData) : nesData(nesData) {}
 
 	const AssignChannelData& getNesData(int midiChannel) const {
 		return nesData[midiChannel];
@@ -19,22 +21,20 @@ public:
 		return getNesData(midiChannel).isAssigned(nesChannel);
 	}
 
-	AssignData assign(int midiChannel, AssignChannelData const& data) const {
-		AssignData ret = *this;
-		ret.nesData[midiChannel] = data;
-		return ret;
+	void assign(int midiChannel, AssignChannelData const& data) {
+		nesData[midiChannel] = data;
 	}
 
-	AssignData unassign(int midiChannel, NesChannel nesChannel) const {
-		AssignData ret = *this;
-		ret.nesData[midiChannel].nesChannels.reset(int(nesChannel));
-		return ret;
+	void reset(int midiChannel) {
+		nesData[midiChannel] = AssignChannelData();
 	}
 
-	AssignData setDuty(int midiChannel, Preset::Duty duty) const {
-		AssignData ret = *this;
-		ret.nesData[midiChannel].duty = duty;
-		return ret;
+	void unassign(int midiChannel, NesChannel nesChannel) {
+		nesData[midiChannel].nesChannels.reset(int(nesChannel));
+	}
+
+	void setDuty(int midiChannel, Preset::Duty duty) {
+		nesData[midiChannel].duty = duty;
 	}
 
 	bool operator == (const AssignData& other) const {
@@ -44,6 +44,16 @@ public:
 			}
 		}
 		return true;
+	}
+
+	int countPulseDuty(Preset::Duty duty) const {
+		int count = 0;
+		for (auto& channelData : nesData) {
+			if (channelData.duty == duty && channelData.getChannel() == Preset::Channel::PULSE) {
+				count += int(channelData.nesChannels.count());
+			}
+		}
+		return count;
 	}
 };
 

@@ -11,7 +11,7 @@
 class Converter {
 private:
     static constexpr int ROWS_PER_PATTERN = 256;
-    static constexpr double MAX_DETUNE_SEMITONES = 0.2;
+    static constexpr double MAX_DETUNE_SEMITONES = 0.125;
 	static constexpr bool ADJUST_SPEED = true;
 	static constexpr bool MERGE_EMPTY_ROWS = true;
 

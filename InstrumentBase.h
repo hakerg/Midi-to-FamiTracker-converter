@@ -108,8 +108,8 @@ private:
 		std::shared_ptr<Instrument> taiko;
 		std::shared_ptr<Instrument> standardDrums;
 		std::shared_ptr<Instrument> electronicDrums;
-		std::shared_ptr<Instrument> analogDrums;
 		std::shared_ptr<Instrument> orchestraDrums;
+		std::shared_ptr<Instrument> analogDrums;
 
 		void createInstruments(FamiTrackerFile& file) {
 			synthDrum = createSingleSampleInstrument(file, L"Synth drum", samples.synthDrum, 0.5);
@@ -124,15 +124,15 @@ private:
 
 			standardDrums = file.addInstrument(L"Standard drums");
 			electronicDrums = file.addInstrument(L"Electronic drums");
-			analogDrums = file.addInstrument(L"Analog drums");
 			orchestraDrums = file.addInstrument(L"Orchestra drums");
+			analogDrums = file.addInstrument(L"Analog drums");
 		}
 	};
 
 	Dpcm dpcm;
 
 	std::array<std::optional<Preset>, MidiState::PROGRAM_COUNT> gm;
-	std::unordered_map<int, std::array<std::vector<Preset>, MidiState::KEY_COUNT>> drums{};
+	std::unordered_map<int, std::array<std::optional<Preset>, MidiState::KEY_COUNT>> drums{};
 
 	std::vector<int> createDecayValues(int start, int last, int delta, int period) {
 		std::vector<int> values;
@@ -147,60 +147,42 @@ private:
 	void fillInstruments(FamiTrackerFile& file) {
 		using enum Preset::Channel;
 		using enum Preset::Duty;
-		auto loopMacro = file.addVolumeMacro({ 15, 0 }, -1, 0);
 
+		auto loopMacro = file.addVolumeMacro({ 15, 0 }, -1, 0);
 		auto fastDecayMacro = file.addVolumeMacro({ 15, 11, 7, 3, 0 });
 		auto decayMacro = file.addVolumeMacro(createDecayValues(15, 0, -1, 1));
 		auto longDecayMacro = file.addVolumeMacro(createDecayValues(15, 0, -1, 2));
 		auto pianoMacro = file.addVolumeMacro(createDecayValues(15, 0, -1, 6));
-
 		auto longDecayMacroCut = file.addVolumeMacro(createDecayValues(15, 0, -1, 2), -1, 30);
 		auto pianoMacroCut = file.addVolumeMacro(createDecayValues(15, 0, -1, 6), -1, 90);
-		auto guitarDistortionMacroCut = file.addVolumeMacro(createDecayValues(15, 0, -1, 15), -1, 225);
-
 		auto attackMacro = file.addVolumeMacro({ 3, 7, 11, 15, 0 }, -1, 3);
 		auto stringsMacro = file.addVolumeMacro({ 3, 7, 11, 15, 5, 5, 5, 5, 5, 5, 5, 5, 0 }, -1, 3);
-		auto openHatVolumeMacro = file.addVolumeMacro({ 15, 14, 12, 11, 10, 11, 12, 13, 13, 12, 11, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 });
-		auto clapVolumeMacro = file.addVolumeMacro({ 11, 7, 12, 8, 13, 8, 6, 4, 2, 0 });
-		auto analogOpenHatVolumeMacro = file.addVolumeMacro({ 12, 12, 12, 12, 12, 0 });
 		auto reverseCymbalValues = createDecayValues(1, 10, 1, 2);
 		reverseCymbalValues.push_back(0);
 		auto reverseCymbalMacro = file.addVolumeMacro(reverseCymbalValues, -1, 19);
-
-		auto snareArpeggioMacro = file.addArpeggioMacro({ -5, 2, 0 }, ArpeggioType::ABSOLUTE_);
-		auto openHatArpeggioMacro = file.addArpeggioMacro({ 2, 0, 2, 3, 4 }, ArpeggioType::ABSOLUTE_);
-		auto crashArpeggioMacro = file.addArpeggioMacro({ -4, 2, -6, -2, 0 }, ArpeggioType::ABSOLUTE_);
-		auto clapArpeggioMacro = file.addArpeggioMacro({ -3, -6, -2, -6, -1 }, ArpeggioType::ABSOLUTE_);
-		auto hardSnareMacro = file.addArpeggioMacro({ 0, 0, 0, 1, 1, 1, 2 }, ArpeggioType::ABSOLUTE_);
+		auto hiHatMacro = file.addVolumeMacro({ 12, 12, 12, 12, 12, 0 });
 
 		auto vibratoMacro = file.addPitchMacro({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, 1, 1, 1, 1 }, 15);
 
 		auto pluckDutyMacro = file.addDutyMacro({ 2, 1, 0, 1 });
-		auto clapDutyMacro = file.addDutyMacro({ 0, 1, 0, 1, 0 });
 
 		std::shared_ptr<Instrument> loop = file.addInstrument(L"Loop", loopMacro);
 		std::shared_ptr<Instrument> loopVibrato = file.addInstrument(L"Loop vibrato", loopMacro, {}, vibratoMacro);
-		
 		std::shared_ptr<Instrument> fastDecay = file.addInstrument(L"Fast decay", fastDecayMacro);
 		std::shared_ptr<Instrument> decay = file.addInstrument(L"Decay", decayMacro);
 		std::shared_ptr<Instrument> longDecayCut = file.addInstrument(L"Long decay cut", longDecayMacroCut);
 		std::shared_ptr<Instrument> pianoCut = file.addInstrument(L"Piano cut", pianoMacroCut);
-		
 		std::shared_ptr<Instrument> attack = file.addInstrument(L"Attack", attackMacro);
 		std::shared_ptr<Instrument> strings = file.addInstrument(L"Strings", stringsMacro, {}, vibratoMacro);
 		std::shared_ptr<Instrument> pad = file.addInstrument(L"Pad", stringsMacro);
-		std::shared_ptr<Instrument> guitarDistortion = file.addInstrument(L"Guitar distortion", guitarDistortionMacroCut, {}, {}, {}, pluckDutyMacro);
-		std::shared_ptr<Instrument> snare = file.addInstrument(L"Snare", fastDecayMacro, snareArpeggioMacro);
-		std::shared_ptr<Instrument> openHat = file.addInstrument(L"Open hi-hat", openHatVolumeMacro, openHatArpeggioMacro);
-		std::shared_ptr<Instrument> analogOpenHat = file.addInstrument(L"Analog open hi-hat", analogOpenHatVolumeMacro);
-		std::shared_ptr<Instrument> crash = file.addInstrument(L"Crash", longDecayMacro, crashArpeggioMacro);
-		std::shared_ptr<Instrument> clap = file.addInstrument(L"Clap", clapVolumeMacro, clapArpeggioMacro, {}, {}, clapDutyMacro);
-		std::shared_ptr<Instrument> hardSnare = file.addInstrument(L"Hard snare", decayMacro, hardSnareMacro);
+		std::shared_ptr<Instrument> guitarDistortion = file.addInstrument(L"Guitar distortion", loopMacro, {}, {}, {}, pluckDutyMacro);
+		std::shared_ptr<Instrument> crash = file.addInstrument(L"Crash", longDecayMacro);
 		std::shared_ptr<Instrument> reverseCymbal = file.addInstrument(L"Reverse cymbal", reverseCymbalMacro);
+		std::shared_ptr<Instrument> hiHat = file.addInstrument(L"Hi-hat", hiHatMacro);
 
 		dpcm.createInstruments(file);
 
-
+		
 
 		// piano
 		gm[0] = { Preset(PULSE, pianoCut, true, PULSE_50) };
@@ -365,14 +347,10 @@ private:
 
 
 		// drums
-		drums[0][35] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::KICK_FILL, NoiseNote(12)) }; // kick
-		drums[0][36] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::KICK_FILL, NoiseNote(12)) }; // kick
-		drums[0][38] = { Preset(NOISE, snare, false, NOISE_NORMAL, Preset::Order::SNARE_FILL, NoiseNote(12)) }; // snare
-		drums[0][39] = { Preset(NOISE, clap, false, UNSPECIFIED, Preset::Order::CLAP, NoiseNote(8)) }; // clap
-		drums[0][40] = { Preset(NOISE, snare, false, NOISE_NORMAL, Preset::Order::SNARE_FILL, NoiseNote(12)) }; // snare
+		drums[0][39] = { Preset(NOISE, fastDecay, false, UNSPECIFIED, Preset::Order::CLAP, NoiseNote(7)) }; // clap
 		drums[0][42] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::HI_HAT, NoiseNote(12)) }; // hi-hat
 		drums[0][44] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::HI_HAT, NoiseNote(12)) }; // hi-hat
-		drums[0][46] = { Preset(NOISE, openHat, false, NOISE_NORMAL, Preset::Order::OPEN_HI_HAT, NoiseNote(9)) }; // open hi-hat
+		drums[0][46] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::OPEN_HI_HAT, NoiseNote(12)) }; // open hi-hat
 		drums[0][49] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(9), 15) }; // crash 1
 		drums[0][51] = { Preset(NOISE, fastDecay, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride cymbal 1
 		drums[0][52] = { Preset(NOISE, crash, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(6), 15) }; // chinese cymbal
@@ -404,8 +382,8 @@ private:
 
 		// hard drums
 		drums[16] = drums[0];
-		drums[16][38] = { Preset(NOISE, hardSnare, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(6), 5) }; // snare
-		drums[16][40] = { Preset(NOISE, hardSnare, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(6), 5) }; // snare
+		drums[16][38] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(7), 5) }; // snare
+		drums[16][40] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(7), 5) }; // snare
 		drums[16][41] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(2), 5) }; // tom
 		drums[16][43] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(3), 5) }; // tom
 		drums[16][45] = { Preset(NOISE, decay, false, NOISE_NORMAL, Preset::Order::TOM, NoiseNote(4), 5) }; // tom
@@ -415,14 +393,14 @@ private:
 
 		// electronic drums
 		drums[24] = drums[16];
+		drums[16][38] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(7), 5) }; // snare
+		drums[16][40] = { Preset(NOISE, fastDecay, false, NOISE_NORMAL, Preset::Order::SNARE, NoiseNote(7), 5) }; // snare
 		drums[24][41] = {}; // tom
 		drums[24][43] = {}; // tom
 		drums[24][45] = {}; // tom
 		drums[24][47] = {}; // tom
 		drums[24][48] = {}; // tom
 		drums[24][50] = {}; // tom
-		bindDrumSample(dpcm.samples.hardKick, dpcm.electronicDrums, false, 24, 35, Preset::Order::KICK, 15);
-		bindDrumSample(dpcm.samples.hardKick, dpcm.electronicDrums, false, 24, 36, Preset::Order::KICK, 15);
 		bindDrumSample(dpcm.samples.synthDrum, dpcm.electronicDrums, false, 24, 41, Preset::Order::TOM, 10);
 		bindDrumSample(dpcm.samples.synthDrum, dpcm.electronicDrums, false, 24, 43, Preset::Order::TOM, 11);
 		bindDrumSample(dpcm.samples.synthDrum, dpcm.electronicDrums, false, 24, 45, Preset::Order::TOM, 12);
@@ -432,7 +410,7 @@ private:
 
 		// analog drums
 		drums[25] = drums[0];
-		drums[25][46] = { Preset(NOISE, analogOpenHat, false, NOISE_NORMAL, Preset::Order::OPEN_HI_HAT, NoiseNote(12)) }; // open hi-hat
+		drums[25][46] = { Preset(NOISE, hiHat, false, NOISE_NORMAL, Preset::Order::OPEN_HI_HAT, NoiseNote(12)) }; // open hi-hat
 		bindDrumSample(dpcm.samples.analogKick, dpcm.analogDrums, false, 25, 35, Preset::Order::KICK, 15);
 		bindDrumSample(dpcm.samples.analogKick, dpcm.analogDrums, false, 25, 36, Preset::Order::KICK, 15);
 		bindDrumSample(dpcm.samples.analogSnare, dpcm.analogDrums, false, 25, 38, Preset::Order::SNARE, 15);
@@ -461,10 +439,7 @@ private:
 
 	void bindDrumSample(std::shared_ptr<DpcmSample> sample, std::shared_ptr<Instrument> instrument, bool needRelease, int program, int key, Preset::Order order, int pitch) {
 		instrument->dpcmSamples.emplace_back(Note(NesChannel::DPCM, key), sample, pitch, false);
-
-		std::vector<Preset>& presets = drums[program][key];
-		std::erase_if(presets, [](Preset const& preset) { return preset.channel == Preset::Channel::DPCM; });
-		presets.emplace_back(Preset::Channel::DPCM, instrument, needRelease, Preset::Duty::UNSPECIFIED, order, Note(NesChannel::DPCM, key));
+		drums[program][key] = { Preset(Preset::Channel::DPCM, instrument, needRelease, Preset::Duty::UNSPECIFIED, order, Note(NesChannel::DPCM, key)) };
 	}
 
 	static Note NoiseNote(int key) {
@@ -481,7 +456,7 @@ public:
 		return gm[program];
 	}
 
-	std::vector<Preset> getDrumPresets(int program, int key) const {
+	std::optional<Preset> getDrumPreset(int program, int key) const {
 		return getMapValueOrDefault(drums, program, drums.find(0)->second)[key];
 	}
 };

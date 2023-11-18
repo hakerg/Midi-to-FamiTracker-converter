@@ -33,10 +33,7 @@ public:
 		TRIANGLE,
 		TAMBOURINE,
 
-		REVERSE_CYMBAL,
-
-		SNARE_FILL,
-		KICK_FILL
+		REVERSE_CYMBAL
 	};
 
 	Channel channel;
@@ -70,22 +67,7 @@ public:
 		}
 	}
 
-	bool isNonDecaying() const {
-		if (!needRelease) {
-			return false;
-		}
-
-		auto& volumeMacro = instrument->volumeMacro;
-		auto loopIndex = int(volumeMacro->values.size() - 1);
-
-		if (volumeMacro->loopPosition >= 0) {
-			loopIndex = min(loopIndex, volumeMacro->loopPosition);
-		}
-
-		if (volumeMacro->releasePosition >= 0) {
-			loopIndex = min(loopIndex, volumeMacro->releasePosition);
-		}
-
-		return volumeMacro->values[loopIndex] >= 2;
+	bool isSimpleLoop() const {
+		return instrument->volumeMacro && instrument->volumeMacro->releasePosition == 0;
 	}
 };

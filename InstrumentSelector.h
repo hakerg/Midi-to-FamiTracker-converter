@@ -12,14 +12,19 @@
 
 class InstrumentSelector {
 private:
-	static constexpr double MIN_NOTE_SECONDS = 1 / 30.0;
+	static constexpr double MIN_NOTE_SECONDS = 1 / 20.0; // 3 frames
 
 	InstrumentBase base;
-	std::vector<AssignData> channelAssignData{};
+	std::vector<IndexedAssignData> channelAssignData{};
+
+	IndexedAssignData getLastAssignData() const {
+		return channelAssignData.empty() ? IndexedAssignData(AssignData({}), 0, {}) : channelAssignData.back();
+	}
 
 	void fillChannelAssignData(HSTREAM handle, std::vector<MidiEvent> const& events) {
 		MidiState state;
 		AssignDataGenerator assignGenerator(state, 0, &base);
+
 		for (int i = 0; i < events.size(); i++) {
 			const MidiEvent& event = events[i];
 
@@ -33,29 +38,31 @@ private:
 			}
 			else if (event.event == MIDI_EVENT_PROGRAM || event.event == MIDI_EVENT_DRUMS) {
 
-				bool changed = (channelState.program != oldProgram || channelState.useDrums != oldDrums);
+				if (channelState.program == oldProgram && channelState.useDrums == oldDrums) {
+					continue;
+				}
 
-				if (changed && assignGenerator.hasAnyNotes(event.chan)) {
-					assignGenerator.calculateMidiData();
-					channelAssignData.push_back(assignGenerator.generateAssignData());
+				if (assignGenerator.hasAnyNotes(event.chan)) {
+					channelAssignData.push_back(assignGenerator.generateAssignData(getLastAssignData()));
+
 					assignGenerator = AssignDataGenerator(state, i, &base);
 				}
 				else {
-					assignGenerator.setMidiState(state);
+					assignGenerator.setProgram(event.chan, channelState.program);
 				}
 			}
 		}
-		assignGenerator.calculateMidiData();
-		channelAssignData.push_back(assignGenerator.generateAssignData());
+
+		channelAssignData.push_back(assignGenerator.generateAssignData(getLastAssignData()));
 	}
 
 	const AssignData& getAssign(int eventIndex) const {
 		for (int i = 1; i < channelAssignData.size(); i++) {
 			if (channelAssignData[i].eventIndex > eventIndex) {
-				return channelAssignData[size_t(i) - 1];
+				return channelAssignData[size_t(i) - 1].data;
 			}
 		}
-		return channelAssignData.back();
+		return channelAssignData.back().data;
 	}
 
 	static PlayScore calculatePlayScore(NesState const& nesState, NoteTriggerData const& checkedTrigger, MidiEvent const& event) {
@@ -139,11 +146,11 @@ public:
 		// drums can have multiple triggers (i.e. noise and dpcm for the same note)
 		// for normal instruments only one trigger is selected
 		if (midiState.useDrums) {
-			std::vector<Preset> presets = base.getDrumPresets(midiState.program, event.key);
-			for (auto const& preset : presets) {
-				std::vector<NesChannel> nesChannels = preset.getValidNesChannels();
+			std::optional<Preset> preset = base.getDrumPreset(midiState.program, event.key);
+			if (preset) {
+				std::vector<NesChannel> nesChannels = preset->getValidNesChannels();
 				for (auto const& nesChannel : nesChannels) {
-					addTriggerIfPossible(result, { NoteTriggerData(nesChannel, preset.duty, preset, false) }, event, nesState);
+					addTriggerIfPossible(result, { NoteTriggerData(nesChannel, preset->duty, preset.value(), false) }, event, nesState);
 				}
 			}
 		}

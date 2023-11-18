@@ -21,7 +21,7 @@ private:
 			count += chordCount;
 			multiplier += chordCount / double(i * 3.0 - 2);
 		}
-		return multiplier / count;
+		return count == 0 ? 0 : multiplier / count;
 	}
 
 public:
@@ -81,7 +81,7 @@ public:
 		volumeSum += channelState.getNoteVolume(event.velocity) + 0.01;
 
 		auto noteCount = int(channelState.noteVelocities.size());
-		chords[noteCount]++;
+		chords[max(noteCount, int(chords.size()) - 1)]++;
 
 		for (int chan2 = 0; chan2 < MidiState::CHANNEL_COUNT; chan2++) {
 			MidiChannelState& channelState2 = currentState.getChannel(chan2);
