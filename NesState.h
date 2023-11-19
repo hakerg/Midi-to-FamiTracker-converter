@@ -76,7 +76,7 @@ public:
 		return channel == NOISE || channel == DPCM || channel == TRIANGLE;
 	}
 
-    int countToneOverlappingChannels(NesChannel ignoreNesChannel, double frequency) const {
+    int countToneOverlappingChannels(NesChannel ignoreNesChannel, double frequency, double minDetuneHz) const {
         using enum NesChannel;
         if (ignoreToneOverlap(ignoreNesChannel)) {
             return 0;
@@ -89,9 +89,9 @@ public:
             }
             const std::optional<PlayingNesNote>& note = getNote(nesChannel);
             if (note && note->playing && (
-                std::abs(frequency - note->frequencyAfterPitch) < 1 ||
-                std::abs(frequency * 0.5 - note->frequencyAfterPitch) < 1 ||
-                std::abs(frequency - note->frequencyAfterPitch * 0.5) < 1)) {
+                std::abs(frequency - note->frequencyAfterPitch) < minDetuneHz ||
+                std::abs(frequency - note->frequencyAfterPitch * 2) < minDetuneHz ||
+                std::abs(frequency - note->frequencyAfterPitch * 0.5) < minDetuneHz)) {
                 count++;
             }
         }

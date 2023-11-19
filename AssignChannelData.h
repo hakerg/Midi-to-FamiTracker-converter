@@ -21,10 +21,10 @@ public:
 
 	AssignChannelData(Preset::Duty duty, std::initializer_list<NesChannel> const& nesChannels) : duty(duty), nesChannels(initBitset(nesChannels)) {}
 
-	std::vector<NoteTriggerData> getTriggers(Preset const& preset) const {
+	std::vector<NoteTriggerData> getTriggers(Preset const& preset, bool lowerKeysFirst) const {
 		std::vector<NoteTriggerData> results;
-		forEachAssignedChannel([&results, &preset, this](NesChannel nesChannel) {
-			results.emplace_back(nesChannel, duty, preset, false);
+		forEachAssignedChannel([&results, &preset, lowerKeysFirst, this](NesChannel nesChannel) {
+			results.emplace_back(nesChannel, duty, preset, lowerKeysFirst);
 		});
 		return results;
 	}
@@ -49,10 +49,6 @@ public:
 			return Preset::Channel::SAWTOOTH;
 		}
 		return Preset::Channel(-1);
-	}
-
-	double getChannelRatio(NesChannel nesChannel) const {
-		return isAssigned(nesChannel) ? 1.0 / double(nesChannels.count()) : 0;
 	}
 
 	bool isAssigned(NesChannel nesChannel) const {

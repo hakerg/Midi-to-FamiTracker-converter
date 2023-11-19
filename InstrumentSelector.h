@@ -8,45 +8,63 @@
 #include "MidiState.h"
 #include "PlayScore.h"
 #include "AssignData.h"
-#include "AssignDataGenerator.h"
+#include "ChannelAssigner.h"
 
 class InstrumentSelector {
 private:
+	static constexpr double MIN_NOTE_SECONDS = 1 / 20.0; // 3 frames
+
 	InstrumentBase base;
 	std::vector<IndexedAssignData> channelAssignData{};
 
-	void fillChannelAssignData(HSTREAM handle, std::vector<MidiEvent> const& events) {
+	static std::unordered_set<int> getSplitEventIndexes(std::vector<MidiEvent> const& events) {
+		std::unordered_set<int> splits;
 		MidiState state;
-		AssignDataGenerator assignGenerator(state, 0, &base, IndexedAssignData(AssignData({}), 0, {}));
+		std::array<int, MidiState::CHANNEL_COUNT> sectionsNotes{};
 
 		for (int i = 0; i < events.size(); i++) {
 			const MidiEvent& event = events[i];
+			MidiChannelState& channelState = state.getChannel(event.chan);
+			int& sectionNotes = sectionsNotes[event.chan];
 
-			const MidiChannelState& channelState = state.channels[event.chan];
 			int oldProgram = channelState.program;
 			bool oldDrums = channelState.useDrums;
+
 			state.processEvent(event);
 
-			if (event.event == MIDI_EVENT_NOTE_ON) {
-				assignGenerator.addNote(event, state);
+			bool programUpdated = (oldProgram != channelState.program || oldDrums != channelState.useDrums);
+			if (programUpdated && sectionNotes > 0) {
+				splits.insert(i);
+				sectionsNotes.fill(0);
 			}
-			else if (event.event == MIDI_EVENT_PROGRAM || event.event == MIDI_EVENT_DRUMS) {
 
-				if (channelState.program == oldProgram && channelState.useDrums == oldDrums) {
-					continue;
-				}
-
-				if (assignGenerator.hasAnyNotes(event.chan)) {
-					channelAssignData.push_back(assignGenerator.generateAssignData());
-					assignGenerator = AssignDataGenerator(state, i, &base, channelAssignData.back());
-				}
-				else {
-					assignGenerator.setProgram(event.chan, channelState.program);
-				}
+			if (event.event == MIDI_EVENT_NOTE_ON) {
+				sectionNotes++;
 			}
 		}
 
-		channelAssignData.push_back(assignGenerator.generateAssignData());
+		splits.insert(int(events.size()));
+
+		std::cout << "Created " << splits.size() << " split points" << std::endl;
+		return splits;
+	}
+
+	void fillChannelAssignData(std::vector<MidiEvent> const& events, std::unordered_set<int> const& splitPoints, FileSettingsJson const& settings) {
+		MidiState state;
+		auto assigner = std::make_unique<ChannelAssigner>(base, settings);
+
+		for (int i = 0; i < events.size(); i++) {
+			const MidiEvent& event = events[i];
+			state.processEvent(event);
+
+			if (event.event == MIDI_EVENT_NOTE_ON) {
+				assigner->addNote(event, state);
+			}
+
+			if (splitPoints.contains(i + 1)) {
+				channelAssignData.push_back(assigner->generateAssignData(i + 1, state));
+			}
+		}
 	}
 
 	const AssignData& getAssign(int eventIndex) const {
@@ -73,9 +91,9 @@ private:
 		score.set(PLAYABLE_RANGE, Note::isInPlayableRange(checkedTrigger.nesChannel, event.key) ? 1 : 0);
 		score.set(NOTE_TIME, 0);
 		score.set(PRIORITY, -int(checkedTrigger.preset.order));
-		score.set(NOTE_END_TIME, min(MidiChannelNotesData::MIN_NOTE_SECONDS, event.noteEndSeconds - event.seconds));
-		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(checkedTrigger.nesChannel, event, MidiChannelNotesData::MIN_NOTE_SECONDS));
-		score.set(NOTE_HEIGHT, checkedTrigger.lowerNotesFirst ? -event.key : event.key);
+		score.set(NOTE_END_TIME, min(MIN_NOTE_SECONDS, event.noteEndSeconds - event.seconds));
+		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(checkedTrigger.nesChannel, event, MIN_NOTE_SECONDS));
+		score.set(NOTE_HEIGHT, checkedTrigger.lowerKeysFirst ? -event.key : event.key);
 		score.set(VELOCITY, event.velocity);
 
 		return score;
@@ -96,11 +114,11 @@ private:
 		score.set(INTERRUPTS, 0);
 		score.set(PLAYING, note->playing ? 2 : 1);
 		score.set(PLAYABLE_RANGE, Note::isInPlayableRange(triggerData.nesChannel, note->event.key) ? 1 : 0);
-		score.set(NOTE_TIME, -max(0, nesState.seconds - note->event.seconds - MidiChannelNotesData::MIN_NOTE_SECONDS));
+		score.set(NOTE_TIME, -max(0, nesState.seconds - note->event.seconds - MIN_NOTE_SECONDS));
 		score.set(PRIORITY, -int(triggerData.preset.order));
-		score.set(NOTE_END_TIME, min(MidiChannelNotesData::MIN_NOTE_SECONDS, note->event.noteEndSeconds - nesState.seconds));
-		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(nesChannel, note->event, MidiChannelNotesData::MIN_NOTE_SECONDS));
-		score.set(NOTE_HEIGHT, triggerData.lowerNotesFirst ? -note->event.key : note->event.key);
+		score.set(NOTE_END_TIME, min(MIN_NOTE_SECONDS, note->event.noteEndSeconds - nesState.seconds));
+		score.set(TONE_OVERLAP, -nesState.countPulseChannelsWithSameKeyAndLength(nesChannel, note->event, MIN_NOTE_SECONDS));
+		score.set(NOTE_HEIGHT, triggerData.lowerKeysFirst ? -note->event.key : note->event.key);
 		score.set(VELOCITY, note->event.velocity);
 
 		return score;
@@ -128,12 +146,12 @@ private:
 	}
 
 public:
-	void preprocess(HSTREAM handle, std::vector<MidiEvent> const& events, FamiTrackerFile& file) {
+	void preprocess(std::vector<MidiEvent> const& events, FamiTrackerFile& file, FileSettingsJson const& settings) {
 		base.fillBase(file);
-		fillChannelAssignData(handle, events);
+		fillChannelAssignData(events, getSplitEventIndexes(events), settings);
 	}
 
-	std::vector<NoteTriggerData> getNoteTriggers(MidiEvent const& event, int eventIndex, MidiChannelState const& midiState, NesState const& nesState) const {
+	std::vector<NoteTriggerData> getNoteTriggers(MidiEvent const& event, int eventIndex, MidiChannelState const& midiState, NesState const& nesState, FileSettingsJson const& settings) const {
 		std::vector<NoteTriggerData> result;
 
 		// drums can have multiple triggers (i.e. noise and dpcm for the same note)
@@ -143,7 +161,7 @@ public:
 			if (preset) {
 				std::vector<NesChannel> nesChannels = preset->getValidNesChannels();
 				for (auto const& nesChannel : nesChannels) {
-					addTriggerIfPossible(result, { NoteTriggerData(nesChannel, preset->duty, preset.value(), false) }, event, nesState);
+					addTriggerIfPossible(result, { NoteTriggerData(nesChannel, preset->duty, preset.value(), settings.lowerKeysFirst[event.chan])}, event, nesState);
 				}
 			}
 		}
@@ -151,7 +169,7 @@ public:
 			const AssignChannelData& nesData = getAssign(eventIndex).getNesData(event.chan);
 			std::optional<Preset> preset = base.getGmPreset(midiState.program);
 			if (preset) {
-				addTriggerIfPossible(result, nesData.getTriggers(preset.value()), event, nesState);
+				addTriggerIfPossible(result, nesData.getTriggers(preset.value(), settings.lowerKeysFirst[event.chan]), event, nesState);
 			}
 		}
 

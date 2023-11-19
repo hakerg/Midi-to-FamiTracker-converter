@@ -5,12 +5,12 @@
 #include "FamiTrackerFile.h"
 #include "Converter.h"
 
-std::array<std::vector<AssignChannelData>, 1024> AssignDataGenerator::assignConfigurationLookup;
-
 void processFile(int i, int argc, char* arg) {
 	std::filesystem::path midiFile = arg;
 	std::filesystem::path txtFile = midiFile;
 	txtFile.replace_extension("txt");
+	std::filesystem::path jsonFile = midiFile;
+	jsonFile.replace_extension("json");
 
 	std::wcout << i << "/" << (argc - 1) << " Converting " << midiFile << std::endl;
 
@@ -20,7 +20,7 @@ void processFile(int i, int argc, char* arg) {
 		return;
 	}
 
-	FamiTrackerFile file = std::make_unique<Converter>()->convert(handle);
+	FamiTrackerFile file = std::make_unique<Converter>(FileSettingsJson(jsonFile))->convert(handle);
 	BASS_StreamFree(handle);
 
 	std::wstring title = midiFile.stem().wstring();
@@ -42,8 +42,6 @@ int main(int argc, char** argv) {
         std::cout << "BASS_Init error, code " << BASS_ErrorGetCode() << std::endl;
         return 2;
     }
-
-	AssignDataGenerator::initLookups();
 
 	std::vector<std::jthread> threads;
 

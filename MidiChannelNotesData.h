@@ -12,21 +12,8 @@ private:
 		}
 		return count;
 	}
-	
-	double countChordScoreMultiplier(int assignedChannelCount) const {
-		int count = 0;
-		double multiplier = 0;
-		for (int i = 1; i <= assignedChannelCount; i++) {
-			int chordCount = getMapValueOrDefault(noteCountAtNotesOn, i, 0);
-			count += chordCount;
-			multiplier += chordCount / double(i * 3.0 - 2);
-		}
-		return count == 0 ? 0 : multiplier / count;
-	}
 
 public:
-	static constexpr double MIN_NOTE_SECONDS = 1 / 20.0; // 3 frames
-
 	// how many notes appeared
 	int notes{};
 
@@ -46,27 +33,14 @@ public:
 	// how many notes can be played per assigned channel count
 	std::array<int, 5> playedNotes{};
 
-	// chord score per assigned channel count
-	std::array<double, 5> chordScoreMultiplier{};
-
 	void calculate() {
 		for (int i = 0; i < playedNotes.size(); i++) {
 			playedNotes[i] = countPlayedNotes(i);
-			chordScoreMultiplier[i] = countChordScoreMultiplier(i);
 		}
 	}
 
-	double getPlayedNotesRatio(int assignedChannelCount) const {
-		return playedNotes[assignedChannelCount] / double(notes);
-	}
-
-	double getPlayedNotesRatioPerAssignedChannel(std::bitset<int(NesChannel::CHANNEL_COUNT)> const& nesChannels) const {
-		auto assignedChannelCount = int(nesChannels.count());
-		return playedNotes[assignedChannelCount] / (double(notes) * assignedChannelCount);
-	}
-
-	void addNote(MidiEvent const& event, MidiState& currentState) {
-		MidiChannelState& channelState = currentState.getChannel(event.chan);
+	void addNote(MidiEvent const& event, MidiState const& currentState) {
+		const MidiChannelState& channelState = currentState.getChannel(event.chan);
 		// drums are processed in InstrumentSelector::getNoteTriggers
 		if (channelState.useDrums) {
 			return;
@@ -86,7 +60,7 @@ public:
 		noteCountAtNotesOn[noteCount]++;
 
 		for (int chan2 = 0; chan2 < MidiState::CHANNEL_COUNT; chan2++) {
-			MidiChannelState& channelState2 = currentState.getChannel(chan2);
+			const MidiChannelState& channelState2 = currentState.getChannel(chan2);
 			if (event.chan == chan2 || channelState2.useDrums) {
 				continue;
 			}

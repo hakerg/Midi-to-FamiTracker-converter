@@ -23,6 +23,7 @@ public:
     double fineTune = 0;
     int coarseTune = 0;
 
+    // velocity 0 - 127, returns range 0 - 127
     double getNoteVolume(int velocity) const {
         return velocity * volume * expression;
     }

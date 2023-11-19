@@ -18,7 +18,7 @@ public:
 
     Machine machine = Machine::NTSC;
 	int framerate = 0; // 0 - default: 60 for NTSC, 50 for PAL. Default recommended for NSF conversion
-    Expansion expansion = Expansion::VRC6;
+    Expansion expansion = Expansion::NES;
     bool newVibratoStyle = true;
     int minTempo = 32;
     int n163Channels = 1;

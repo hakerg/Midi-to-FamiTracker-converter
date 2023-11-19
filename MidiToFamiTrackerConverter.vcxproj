@@ -148,8 +148,10 @@
     <ClInclude Include="DpcmSample.h" />
     <ClInclude Include="Effect.h" />
     <ClInclude Include="FamiTrackerFile.h" />
+    <ClInclude Include="FileSettingsJson.h" />
     <ClInclude Include="Instrument.h" />
     <ClInclude Include="InstrumentBase.h" />
+    <ClInclude Include="json.hpp" />
     <ClInclude Include="KeyDpcmSample.h" />
     <ClInclude Include="Macro.h" />
     <ClInclude Include="MidiChannelNotesData.h" />
@@ -171,7 +173,7 @@
     <ClInclude Include="Preset.h" />
     <ClInclude Include="SoundWaveProfile.h" />
     <ClInclude Include="SampleBase.h" />
-    <ClInclude Include="AssignDataGenerator.h" />
+    <ClInclude Include="ChannelAssigner.h" />
     <ClInclude Include="Track.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -351,19 +351,18 @@ private:
 
 
 		// drums
-		drums[0][39] = { Preset(NOISE, decay1_2, false, UNSPECIFIED, Preset::Order::CLAP, NoiseNote(7)) }; // clap
+		drums[0][39] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::CLAP, NoiseNote(7)) }; // clap
 		drums[0][42] = { Preset(NOISE, decay1_4, false, NOISE_NORMAL, Preset::Order::HI_HAT, NoiseNote(12)) }; // hi-hat
 		drums[0][44] = { Preset(NOISE, decay1_4, false, NOISE_NORMAL, Preset::Order::HI_HAT, NoiseNote(12)) }; // hi-hat
 		drums[0][46] = { Preset(NOISE, decay1, false, NOISE_NORMAL, Preset::Order::OPEN_HI_HAT, NoiseNote(12)) }; // open hi-hat
 		drums[0][49] = { Preset(NOISE, decay2, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(9), 15) }; // crash 1
-		drums[0][51] = { Preset(NOISE, decay1_2, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride cymbal 1
+		drums[0][51] = { Preset(NOISE, decay1_2, false, NOISE_NORMAL, Preset::Order::RIDE_CYMBAL, NoiseNote(12)) }; // ride cymbal 1
 		drums[0][52] = { Preset(NOISE, decay2, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(6), 15) }; // chinese cymbal
-		drums[0][53] = { Preset(NOISE, decay1_2, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride bell
+		drums[0][53] = { Preset(NOISE, decay1_2, false, NOISE_NORMAL, Preset::Order::RIDE_CYMBAL, NoiseNote(12)) }; // ride bell
 		drums[0][54] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::TAMBOURINE, NoiseNote(14)) }; // tambourine
 		drums[0][55] = { Preset(NOISE, decay2, false, NOISE_NORMAL, Preset::Order::SPLASH, NoiseNote(13), 15) }; // splash
-		drums[0][56] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // cowbell
 		drums[0][57] = { Preset(NOISE, decay2, false, NOISE_NORMAL, Preset::Order::CRASH, NoiseNote(10), 15) }; // crash 2
-		drums[0][59] = { Preset(NOISE, decay1_2, false, NOISE_LOOP, Preset::Order::RIDE_CYMBAL, NoiseNote(9)) }; // ride cymbal 2
+		drums[0][59] = { Preset(NOISE, decay1_2, false, NOISE_NORMAL, Preset::Order::RIDE_CYMBAL, NoiseNote(12)) }; // ride cymbal 2
 		drums[0][67] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::AGOGO, NoiseNote(12)) }; // high agogo
 		drums[0][68] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::AGOGO, NoiseNote(11)) }; // low agogo
 		drums[0][80] = { Preset(NOISE, decay1_4, false, NOISE_LOOP, Preset::Order::TRIANGLE, NoiseNote(15)) }; // triangle closed
@@ -379,6 +378,7 @@ private:
 		bindDrumSample(dpcm.samples.tom, dpcm.standardDrums, false, 0, 47, Preset::Order::TOM, 13);
 		bindDrumSample(dpcm.samples.tom, dpcm.standardDrums, false, 0, 48, Preset::Order::TOM, 14);
 		bindDrumSample(dpcm.samples.tom, dpcm.standardDrums, false, 0, 50, Preset::Order::TOM, 15);
+		bindDrumSample(dpcm.samples.stick, dpcm.standardDrums, false, 0, 56, Preset::Order::STICK, 15);
 		bindDrumSample(dpcm.samples.timbale, dpcm.standardDrums, false, 0, 65, Preset::Order::TIMBALE, 15);
 		bindDrumSample(dpcm.samples.timbale, dpcm.standardDrums, false, 0, 66, Preset::Order::TIMBALE, 14);
 		bindDrumSample(dpcm.samples.stick, dpcm.standardDrums, false, 0, 76, Preset::Order::STICK, 15);

@@ -116,7 +116,7 @@
     <ClInclude Include="AssignData.h">
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
-    <ClInclude Include="AssignDataGenerator.h">
+    <ClInclude Include="ChannelAssigner.h">
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
     <ClInclude Include="AssignChannelData.h">
@@ -132,6 +132,12 @@
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
     <ClInclude Include="NesHeightVolumeController.h">
+      <Filter>Pliki nagłówkowe\Conversion</Filter>
+    </ClInclude>
+    <ClInclude Include="json.hpp">
+      <Filter>Pliki nagłówkowe</Filter>
+    </ClInclude>
+    <ClInclude Include="FileSettingsJson.h">
       <Filter>Pliki nagłówkowe\Conversion</Filter>
     </ClInclude>
   </ItemGroup>
